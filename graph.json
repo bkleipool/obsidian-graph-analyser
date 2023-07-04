@@ -1,0 +1,90 @@
+[
+    {
+        "title": "Matrix",
+        "tags": [],
+        "empty": false,
+        "links": [
+            "Linear map",
+            "System of linear equations",
+            "Linear algebra",
+            "Coordinate basis",
+            "Vector"
+        ]
+    },
+    {
+        "title": "Linear map",
+        "tags": [],
+        "empty": true,
+        "links": []
+    },
+    {
+        "title": "Coordinate basis",
+        "tags": [],
+        "empty": true,
+        "links": []
+    },
+    {
+        "title": "System of linear equations",
+        "tags": [
+            "mathematics/linear_algebra",
+            "concept"
+        ],
+        "empty": false,
+        "links": [
+            "Linear algebra",
+            "Matrix"
+        ]
+    },
+    {
+        "title": "Vector",
+        "tags": [
+            "mathematics/linear_algebra",
+            "concept"
+        ],
+        "empty": false,
+        "links": [
+            "Vector space",
+            "Vector span",
+            "System of linear equations",
+            "Coordinate basis",
+            "Scalar"
+        ]
+    },
+    {
+        "title": "Vector space",
+        "tags": [],
+        "empty": true,
+        "links": []
+    },
+    {
+        "title": "Vector span",
+        "tags": [],
+        "empty": true,
+        "links": []
+    },
+    {
+        "title": "Coordinate basis",
+        "tags": [],
+        "empty": true,
+        "links": []
+    },
+    {
+        "title": "Scalar",
+        "tags": [],
+        "empty": true,
+        "links": []
+    },
+    {
+        "title": "Linear algebra",
+        "tags": [
+            "mathematics/linear_algebra",
+            "topic"
+        ],
+        "empty": false,
+        "links": [
+            "System of linear equations",
+            "Vector",
+            "Matrix"
+        ]
+    }
+]
