@@ -13,7 +13,7 @@ struct MyApp {
     // The coordinate of the center in screenspace
     frame_center: egui::Vec2,
     // If a node is currently being dragged
-    dragging_node: Option<NodeIndex>, 
+    dragging_node: Option<NodeIndex>,
     // Current zoom level
     zoom: f32,
     // Zoom sensitivity
@@ -27,15 +27,23 @@ struct MyApp {
     // Whether physics is updated every frame
     enable_physics: bool,
     // Force strength to center of frame (gravity)
-    center_force: f32,
+    gravity_force: f32,
     // Force strength repelling close nodes (electrostatic)
     repellant_force: f32,
     // Force strength between linked nodes (spring force)
     link_force: f32,
     // "Unstretched" link length
     link_length: f32,
-    // Exponent of inverse-square law for gravity & electrostatic force
-    force_exponent: f32,
+    // Exponent of inverse-square law for electrostatic force
+    repelling_force_exponent: f32,
+    // Exponent of inverse-square law for gravity force (close to center)
+    gravity_force_exponent_primary: f32,
+    // Exponent of inverse-square law for gravity force (far from center)
+    gravity_force_exponent_secondary: f32,
+    //  The radius from center at which the gravity force exponent switches from primary to secondary
+    gravity_switch_radius: f32,
+    // The radius from center at which the gravity force is truncated from the primary inverse-square law value
+    gravity_truncation_radius: f32,
     // Simulation timestep
     timestep: f32,
 }
@@ -57,12 +65,16 @@ impl MyApp {
             node_size: 8.5,
             link_width: 1.0,
             enable_physics: true,
-            center_force: 500.0, //232.3,
-            repellant_force: 350.0, //121.8,
-            link_force: 0.50, //1.15,
-            link_length: 75.0, //100.0,
-            force_exponent: 2.5,
-            timestep: 0.300, //0.145
+            gravity_force: 400.0,
+            repellant_force: 350.0,
+            link_force: 0.50,
+            link_length: 100.0,
+            repelling_force_exponent: 2.5,
+            gravity_force_exponent_primary: 1.9,
+            gravity_force_exponent_secondary: 0.75,
+            gravity_switch_radius: 1000.0,
+            gravity_truncation_radius: 350.0,
+            timestep: 0.300,
         }
     }
 }
@@ -103,8 +115,8 @@ impl eframe::App for MyApp {
             .min_width(200.0)
             .show(ctx, |ui| {
                 egui::CollapsingHeader::new("Physics settings")
-                .default_open(true).show(ui, |ui| {
-
+                    .default_open(true)
+                    .show(ui, |ui| {
                         ui.checkbox(&mut self.enable_physics, "Enable physics");
 
                         ui.horizontal(|ui| {
@@ -120,21 +132,41 @@ impl eframe::App for MyApp {
                         ui.horizontal(|ui| {
                             ui.add_sized(
                                 [80., 20.],
-                                egui::DragValue::new(&mut self.force_exponent)
+                                egui::DragValue::new(&mut self.repelling_force_exponent)
                                     .speed(0.01)
                                     .clamp_range(0.5..=2.5),
                             );
-                            ui.label("Force exponent");
+                            ui.label("Repelling force exponent");
                         });
 
                         ui.horizontal(|ui| {
                             ui.add_sized(
                                 [80., 20.],
-                                egui::DragValue::new(&mut self.center_force)
+                                egui::DragValue::new(&mut self.gravity_force_exponent_primary)
+                                    .speed(0.01)
+                                    .clamp_range(0.5..=2.5),
+                            );
+                            ui.label("Gravity force exponent (close to center)");
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [80., 20.],
+                                egui::DragValue::new(&mut self.gravity_force_exponent_secondary)
+                                    .speed(0.01)
+                                    .clamp_range(0.5..=2.5),
+                            );
+                            ui.label("Gravity force exponent (far from center)");
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [80., 20.],
+                                egui::DragValue::new(&mut self.gravity_force)
                                     .speed(0.1)
                                     .clamp_range(0.0..=500.0),
                             );
-                            ui.label("Center force");
+                            ui.label("Gravity force");
                         });
 
                         ui.horizontal(|ui| {
@@ -145,6 +177,26 @@ impl eframe::App for MyApp {
                                     .clamp_range(0.0..=500.0),
                             );
                             ui.label("Repellant force");
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [80., 20.],
+                                egui::DragValue::new(&mut self.gravity_truncation_radius)
+                                    .speed(1.0)
+                                    .clamp_range(0.0..=500.0),
+                            );
+                            ui.label("Gravity truncation radius");
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [80., 20.],
+                                egui::DragValue::new(&mut self.gravity_switch_radius)
+                                    .speed(5.0)
+                                    .clamp_range(0.0..=2000.0),
+                            );
+                            ui.label("Gravity switch radius");
                         });
 
                         ui.horizontal(|ui| {
@@ -169,24 +221,24 @@ impl eframe::App for MyApp {
                     });
 
                 egui::CollapsingHeader::new("Graph settings")
-                .default_open(true).show(ui, |ui| {
-
+                    .default_open(true)
+                    .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.add_sized(
-                                [80.0, 20.0], 
+                                [80.0, 20.0],
                                 egui::DragValue::new(&mut self.node_size)
-                                .speed(0.1)
-                                .clamp_range(0.0..=15.0),
+                                    .speed(0.1)
+                                    .clamp_range(0.0..=15.0),
                             );
                             ui.label("Node size");
                         });
 
                         ui.horizontal(|ui| {
                             ui.add_sized(
-                                [80.0, 20.0], 
+                                [80.0, 20.0],
                                 egui::DragValue::new(&mut self.link_width)
-                                .speed(0.1)
-                                .clamp_range(0.0..=5.0),
+                                    .speed(0.1)
+                                    .clamp_range(0.0..=5.0),
                             );
                             ui.label("Link width");
                         });
@@ -200,16 +252,16 @@ impl eframe::App for MyApp {
                     });
 
                 egui::CollapsingHeader::new("Display settings")
-                .default_open(true).show(ui, |ui| {
-                    ui.label("...");
-                });
-
-                egui::CollapsingHeader::new("Filter settings")
-                    .default_open(true).show(ui, |ui| {
+                    .default_open(true)
+                    .show(ui, |ui| {
                         ui.label("...");
                     });
 
-                
+                egui::CollapsingHeader::new("Filter settings")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        ui.label("...");
+                    });
             });
 
         // Central panel
@@ -241,11 +293,15 @@ impl MyApp {
         if self.enable_physics {
             self.graph.physics_timestep(
                 1.0,
-                self.center_force,
+                self.gravity_force,
                 self.repellant_force,
                 self.link_force,
                 self.link_length,
-                self.force_exponent,
+                self.repelling_force_exponent,
+                self.gravity_force_exponent_primary,
+                self.gravity_force_exponent_secondary,
+                self.gravity_switch_radius,
+                self.gravity_truncation_radius,
                 self.timestep,
             );
         }
