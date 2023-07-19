@@ -1,6 +1,6 @@
-use obsidian_graph::{json_graph, GraphView};
+use obsidian_graph::{json_graph, GraphView, Page};
 use petgraph::{
-    //dot::{Config, Dot},
+    dot::{Config, Dot},
     graph::NodeIndex,
     Graph,
 };
@@ -49,7 +49,7 @@ struct MyApp {
 }
 
 impl MyApp {
-    fn new(_cc: &eframe::CreationContext<'_>, graph: Graph<String, ()>) -> Self {
+    fn new(_cc: &eframe::CreationContext<'_>, graph: Graph<Page, ()>) -> Self {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_visuals.
         // Restore app state using cc.storage (requires the "persistence" feature).
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
@@ -333,12 +333,20 @@ impl MyApp {
         }
 
         // Draw nodes
-        for (_, node_pos) in self.graph.node_positions() {
-            painter.circle_filled(
-                (self.zoom * node_pos).to_pos2() + self.frame_center,
-                self.zoom * self.node_size,
-                egui::Color32::from_rgb(255, 105, 105),
-            );
+        for (node_index, node_pos) in self.graph.node_positions() {
+            if !self.graph.node_is_empty(node_index) {
+                painter.circle_filled(
+                    (self.zoom * node_pos).to_pos2() + self.frame_center,
+                    self.zoom * self.node_size,
+                    egui::Color32::from_rgb(255, 105, 105),
+                )
+            } else {
+                painter.circle_filled(
+                    (self.zoom * node_pos).to_pos2() + self.frame_center,
+                    self.zoom * self.node_size,
+                    egui::Color32::from_rgb(50, 50, 50),
+                )
+            }
         }
 
         // Zoom graph area
@@ -395,8 +403,9 @@ impl MyApp {
 }
 
 fn main() -> eframe::Result<()> {
-    let graph = json_graph("graph.json");
+    let graph = json_graph("graph2.json");
     //println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+    //println!("{:?}",graph.node_count());
 
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1280.0, 720.0)),
