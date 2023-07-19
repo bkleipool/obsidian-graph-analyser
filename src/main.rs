@@ -1,10 +1,10 @@
+use egui::{Vec2, Pos2};
 use obsidian_graph::{json_graph, GraphView, Page};
 use petgraph::{
-    dot::{Config, Dot},
+    // dot::{Config, Dot},
     graph::NodeIndex,
     Graph,
 };
-
 use eframe::egui;
 
 struct MyApp {
@@ -14,6 +14,8 @@ struct MyApp {
     frame_center: egui::Vec2,
     // If a node is currently being dragged
     dragging_node: Option<NodeIndex>,
+    // The number of frames while which a node is being hovered over
+    node_hover_time: f32,
     // Current zoom level
     zoom: f32,
     // Zoom sensitivity
@@ -59,6 +61,7 @@ impl MyApp {
             graph: GraphView::new(graph),
             frame_center: egui::Vec2::new(640., 372.),
             dragging_node: None,
+            node_hover_time: 0.,
             zoom: 1.0,
             zoom_step: 0.15,
             draw_arrows: false,
@@ -105,7 +108,7 @@ impl eframe::App for MyApp {
                 });
                 ui.menu_button("Help", |ui| {
                     if ui.button("User Manual").clicked() {}
-                    if ui.button("Project Gitea Page").clicked() {}
+                    if ui.button("Project Github Page").clicked() {}
                 });
             });
         });
@@ -249,6 +252,9 @@ impl eframe::App for MyApp {
                             self.zoom = 1.0;
                             self.frame_center = egui::Vec2::new(640., 372.)
                         }
+
+                        // ui.add(egui::DragValue::new(&mut self.node_hover_time));
+                        
                     });
 
                 egui::CollapsingHeader::new("Display settings")
@@ -269,12 +275,7 @@ impl eframe::App for MyApp {
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 ctx.request_repaint();
 
-                //let (_, rect) = ui.allocate_space(ui.available_size());
                 self.custom_painting(ui);
-
-                //let response = ui.allocate_response(ui.available_size(), egui::Sense::click());
-                //if response.clicked() { println!("badf") }
-                //ui.painter().rect_stroke(response.rect, 0.0, (1.0, egui::Color32::WHITE));
             });
         });
     }
@@ -393,6 +394,43 @@ impl MyApp {
         } else {
             self.dragging_node = None
         }
+
+        // Hover over node
+        let old_node_hover_time = self.node_hover_time;
+
+        if response.hovered() && self.dragging_node == None {
+            for (index, node_pos) in self.graph.node_positions() {
+                if ((self.zoom * node_pos) + self.frame_center - mouse_pos.to_vec2())
+                    .length()
+                    <= self.zoom * self.node_size
+                {
+                    self.node_hover_time += 1.;
+
+                    painter.text(((self.zoom * (node_pos + egui::Vec2::new(0., 15.))) + self.frame_center).to_pos2(),
+                        egui::Align2::CENTER_CENTER,
+                        self.graph.node_title(index),
+                        egui::FontId::proportional(12. * self.zoom),
+                        egui::Color32::from_rgba_unmultiplied(
+                            255,
+                            255,
+                            255,
+                            match self.node_hover_time {
+                                x if (0.0..5.0).contains(&x) => 0,
+                                x if (5.0..50.0).contains(&x) => (255./(50.-5.) * (self.node_hover_time - 5.)) as u8,
+                                _ => 255
+                            }
+                        )
+                    );
+                }
+            }
+
+            if old_node_hover_time == self.node_hover_time {
+                self.node_hover_time = 0.
+            }
+        } else {
+            self.node_hover_time = 0.
+        }
+
 
         /*
         if let Some(position) = response.interact_pointer_pos() {

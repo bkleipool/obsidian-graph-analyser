@@ -111,6 +111,15 @@ impl GraphView {
         }
     }
 
+    /// Returns the name of a node
+    pub fn node_title(&self, index: NodeIndex) -> String {
+        if let Some(page) = self.graph.node_weight(index) {
+            page.title.to_string()
+        } else {
+            "".to_string()
+        }
+    }
+
     /// Modify a node position
     pub fn set_node_position(&mut self, index: NodeIndex, pos: egui::Vec2) {
         if let Some(node) = self.nodes.get_mut(&index) {
