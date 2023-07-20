@@ -111,18 +111,15 @@ impl eframe::App for MyApp {
                         if ui.button("Project 3").clicked() {};
                     });
                     ui.separator();
-                    if ui.button("Save").clicked() {}
-                    if ui.button("Save As...").clicked() {}
-                });
-                ui.menu_button("Edit", |ui| {
-                    if ui.button("Undo").clicked() {}
-                    if ui.button("Redo").clicked() {}
-                    ui.separator();
                     if ui.button("Preferences").clicked() {}
                 });
+                //ui.menu_button("Edit", |ui| {
+                //    if ui.button("Undo").clicked() {}
+                //    if ui.button("Redo").clicked() {}   
+                //});
                 ui.menu_button("Help", |ui| {
-                    if ui.button("User Manual").clicked() {}
-                    if ui.button("Project Github Page").clicked() {}
+                    ui.hyperlink_to("Project Github Page", "https://github.com/bkleipool/obsidian-graph-analyser");
+                    if ui.button("Documentation").clicked() {}
                 });
             });
         });
