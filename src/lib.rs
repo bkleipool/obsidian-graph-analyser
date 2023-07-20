@@ -63,7 +63,7 @@ impl GraphView {
         }
     }
 
-    /// Returrn a vector of all node positions in screenspace
+    /// Return a vector of all node positions in screenspace
     pub fn node_positions(&self) -> Vec<(NodeIndex, egui::Vec2)> {
         self.nodes
             .iter()

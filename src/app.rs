@@ -318,6 +318,7 @@ impl eframe::App for MyApp {
 
 // MyApp custom painting
 impl MyApp {
+    // Graph view
     fn custom_painting(&mut self, ui: &mut egui::Ui) {
         // Allocate interactive graphing area and initiate a painter
         let response = ui.allocate_response(ui.available_size(), egui::Sense::click_and_drag());
@@ -326,6 +327,7 @@ impl MyApp {
         let mouse_pos = response.hover_pos().unwrap_or(egui::Pos2::new(0.0, 0.0));
         self.frame_size = response.rect.size();
 
+        // Perform physics timestep
         if self.enable_physics {
             self.graph.physics_timestep(
                 1.0,
@@ -498,6 +500,7 @@ impl MyApp {
         */
     }
 
+    // Drag & drop vaults
     fn ui_file_drag_and_drop(&mut self, ctx: &egui::Context) {
         use egui::*;
         use std::fmt::Write as _;
