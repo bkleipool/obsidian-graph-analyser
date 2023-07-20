@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 
+pub mod app;
+
 /// This struct stores the Markdown page information
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Page {
