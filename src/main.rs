@@ -1,17 +1,18 @@
-use egui::{Vec2, Pos2};
+use eframe::egui;
 use obsidian_graph::{json_graph, GraphView, Page};
 use petgraph::{
     // dot::{Config, Dot},
     graph::NodeIndex,
     Graph,
 };
-use eframe::egui;
 
 struct MyApp {
     // The graph currently being viewd
     graph: GraphView,
     // The coordinate of the center in screenspace
     frame_center: egui::Vec2,
+    // The size of the drawing area in screenspace (automatically updating)
+    frame_size: egui::Vec2,
     // If a node is currently being dragged
     dragging_node: Option<NodeIndex>,
     // The number of frames while which a node is being hovered over
@@ -22,10 +23,16 @@ struct MyApp {
     zoom_step: f32,
     // Whether to draw arrows at node edges
     draw_arrows: bool,
-    // Size of a node
+    // Whether to draw node labels
+    draw_labels: bool,
+    // Radius of a node (px)
     node_size: f32,
-    // Width of links
+    // Width of links (px)
     link_width: f32,
+    // Size of node label (pt)
+    text_size: f32,
+    // Size of node label at which to start fading the text (pt)
+    text_fade_threshold: f32,
     // Whether physics is updated every frame
     enable_physics: bool,
     // Force strength to center of frame (gravity)
@@ -60,13 +67,17 @@ impl MyApp {
         Self {
             graph: GraphView::new(graph),
             frame_center: egui::Vec2::new(640., 372.),
+            frame_size: egui::Vec2::new(0., 0.),
             dragging_node: None,
             node_hover_time: 0.,
             zoom: 1.0,
             zoom_step: 0.15,
             draw_arrows: false,
+            draw_labels: true,
             node_size: 8.5,
             link_width: 1.0,
+            text_size: 8.0,
+            text_fade_threshold: 4.5,
             enable_physics: true,
             gravity_force: 400.0,
             repellant_force: 350.0,
@@ -77,7 +88,7 @@ impl MyApp {
             gravity_force_exponent_secondary: 0.75,
             gravity_switch_radius: 1000.0,
             gravity_truncation_radius: 350.0,
-            timestep: 0.300,
+            timestep: 0.400,
         }
     }
 }
@@ -246,7 +257,29 @@ impl eframe::App for MyApp {
                             ui.label("Link width");
                         });
 
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [80.0, 20.0],
+                                egui::DragValue::new(&mut self.text_size)
+                                    .speed(0.1)
+                                    .clamp_range(0.0..=16.0),
+                            );
+                            ui.label("Text size");
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [80.0, 20.0],
+                                egui::DragValue::new(&mut self.text_fade_threshold)
+                                    .speed(0.1)
+                                    .clamp_range(0.0..=self.text_size),
+                            );
+                            ui.label("Text fade threshold");
+                        });
+
                         ui.checkbox(&mut self.draw_arrows, "Draw arrows");
+
+                        ui.checkbox(&mut self.draw_labels, "Draw labels");
 
                         if ui.button("Reset view").clicked() {
                             self.zoom = 1.0;
@@ -254,7 +287,6 @@ impl eframe::App for MyApp {
                         }
 
                         // ui.add(egui::DragValue::new(&mut self.node_hover_time));
-                        
                     });
 
                 egui::CollapsingHeader::new("Display settings")
@@ -289,7 +321,7 @@ impl MyApp {
         let painter = ui.painter_at(response.rect);
 
         let mouse_pos = response.hover_pos().unwrap_or(egui::Pos2::new(0.0, 0.0));
-        //self.frame_center = response.rect.center().to_vec2();
+        self.frame_size = response.rect.size();
 
         if self.enable_physics {
             self.graph.physics_timestep(
@@ -350,6 +382,45 @@ impl MyApp {
             }
         }
 
+        // Draw node labels (if they are visible on the screen)
+        if self.draw_labels {
+            for (node_index, node_pos) in self.graph.node_positions() {
+                let text_pos = (self.zoom * (node_pos + egui::Vec2::new(0., self.node_size + 2.0)))
+                    + self.frame_center;
+
+                if (0.0..=self.frame_size.x).contains(&text_pos.x)
+                    && (0.0..=self.frame_size.y).contains(&text_pos.y)
+                {
+                    painter.text(
+                        text_pos.to_pos2(),
+                        egui::Align2::CENTER_TOP,
+                        self.graph.node_title(node_index),
+                        egui::FontId::proportional(self.text_size * self.zoom),
+                        egui::Color32::from_rgba_unmultiplied(
+                            255,
+                            255,
+                            255,
+                            match self.zoom {
+                                x if (0.0..=self.text_fade_threshold / self.text_size)
+                                    .contains(&x) =>
+                                {
+                                    0
+                                }
+                                x if (self.text_fade_threshold / self.text_size..=1.0)
+                                    .contains(&x) =>
+                                {
+                                    (255. / (1.0 - self.text_fade_threshold / self.text_size)
+                                        * (self.zoom - self.text_fade_threshold / self.text_size))
+                                        as u8
+                                }
+                                _ => 255,
+                            },
+                        ),
+                    );
+                }
+            }
+        }
+
         // Zoom graph area
         let scroll = ui.input(|i| i.scroll_delta);
         if scroll.y != 0. {
@@ -400,27 +471,13 @@ impl MyApp {
 
         if response.hovered() && self.dragging_node == None {
             for (index, node_pos) in self.graph.node_positions() {
-                if ((self.zoom * node_pos) + self.frame_center - mouse_pos.to_vec2())
-                    .length()
+                if ((self.zoom * node_pos) + self.frame_center - mouse_pos.to_vec2()).length()
                     <= self.zoom * self.node_size
                 {
                     self.node_hover_time += 1.;
 
-                    painter.text(((self.zoom * (node_pos + egui::Vec2::new(0., 15.))) + self.frame_center).to_pos2(),
-                        egui::Align2::CENTER_CENTER,
-                        self.graph.node_title(index),
-                        egui::FontId::proportional(12. * self.zoom),
-                        egui::Color32::from_rgba_unmultiplied(
-                            255,
-                            255,
-                            255,
-                            match self.node_hover_time {
-                                x if (0.0..5.0).contains(&x) => 0,
-                                x if (5.0..50.0).contains(&x) => (255./(50.-5.) * (self.node_hover_time - 5.)) as u8,
-                                _ => 255
-                            }
-                        )
-                    );
+                    // ...
+                    // ...
                 }
             }
 
@@ -430,7 +487,6 @@ impl MyApp {
         } else {
             self.node_hover_time = 0.
         }
-
 
         /*
         if let Some(position) = response.interact_pointer_pos() {

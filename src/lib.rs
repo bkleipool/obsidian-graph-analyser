@@ -238,7 +238,6 @@ pub fn json_graph(file_name: &str) -> Graph<Page, ()> {
     // Create a directed graph
     let mut graph: Graph<Page, ()> = Graph::new();
 
-
     // Create a hashmap to quickly find nodes (pages) by their title
     let mut title_to_node = HashMap::new();
 
@@ -255,13 +254,14 @@ pub fn json_graph(file_name: &str) -> Graph<Page, ()> {
     for page in pages.iter() {
         let source_node_index = title_to_node.get(&page.title).expect("Node not found");
         for linked_page_title in page.links.iter() {
-            let target_node_index = title_to_node.get(linked_page_title).expect("Node not found");
+            let target_node_index = title_to_node
+                .get(linked_page_title)
+                .expect("Node not found");
             graph.add_edge(*source_node_index, *target_node_index, ());
         }
     }
 
-    
-    /* 
+    /*
     let mut page_indices = HashMap::new();
 
     // Add nodes (pages) and edges (links) to the graph
