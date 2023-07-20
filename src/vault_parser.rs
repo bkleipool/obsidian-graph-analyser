@@ -1,60 +1,70 @@
-use std::{fs, collections::HashMap};
+use std::{fs, collections::{HashMap, HashSet}, path::{Path, PathBuf}, io::Read};
 use petgraph::Graph;
 use regex::Regex;
 
 use crate::Page;
 
-// Search the target folder and all subfolders for Markdown files
-fn search_markdown_files(folder_path: &str) -> (Vec<String>, Vec<String>) {
+// Search the target folder and all subfolders (recursively) for Markdown files
+fn search_markdown_files(folder_path: &Path) -> Vec<(PathBuf, String)> {
     let mut file_list = Vec::new();
-    let mut title_list = Vec::new();
 
-    for entry in fs::read_dir(folder_path).unwrap() {
-        let entry = entry.unwrap();
-        let path = entry.path();
-        if path.is_file() && path.extension().unwrap_or_default() == "md" {
-            file_list.push(path.to_string_lossy().to_string());
-            title_list.push(path.file_stem().unwrap().to_string_lossy().to_string());
+    fn recursive_file_search(folder_path: &Path, file_list: &mut Vec<(PathBuf, String)>) {
+        for entry in fs::read_dir(folder_path).unwrap() {
+            if let Ok(entry) = entry {
+                let file_path = entry.path();
+                if file_path.is_file() && file_path.extension() == Some(&std::ffi::OsStr::new("md")) {
+                    let file_path_buf = file_path.to_path_buf();
+                    let file_title = file_path.file_stem().and_then(|os_str| os_str.to_str()).unwrap().to_string();
+                    file_list.push((file_path_buf, file_title));
+                } else if file_path.is_dir() {
+                    recursive_file_search(&file_path, file_list);
+                }
+            }
         }
     }
 
-    (file_list, title_list)
+    recursive_file_search(folder_path, &mut file_list);
+    file_list
 }
 
 // Search a Markdown file for metadata tags
-fn search_tags(file: &str) -> Vec<String> {
-    let contents = fs::read_to_string(file).unwrap();
-    let tag_pattern = r"---\n\s*tags: (.*?)\n---";
-    let re = Regex::new(tag_pattern).unwrap();
+fn search_tags(file: &Path) -> Vec<String> {
+    let mut contents = String::new();
+    fs::File::open(file)
+        .and_then(|mut f| f.read_to_string(&mut contents))
+        .unwrap_or_default();
 
-    if let Some(captures) = re.captures(&contents) {
+    let tag_pattern = Regex::new(r"---\n\s*tags: (.*?)\n---").unwrap();
+    if let Some(captures) = tag_pattern.captures(&contents) {
         let tags_string = captures.get(1).unwrap().as_str().trim();
-        let tags = tags_string.split(',').map(|tag| tag.trim().to_string()).collect();
-        tags
-    } else {
-        Vec::new()
+        let tags: Vec<String> = tags_string.split(',').map(|tag| tag.trim().to_string()).collect();
+        return tags;
     }
+    Vec::new()
 }
 
 // Search a Markdown file for links of the form [[Linked page |...]] or [[Linked page]]
-fn search_links(file: &str) -> Vec<String> {
-    let contents = fs::read_to_string(file).unwrap();
-    let link_pattern = r"\[\[(.*?)(?:\|.*?)?\]\]";
-    let re = Regex::new(link_pattern).unwrap();
+fn search_links(file: &Path) -> Vec<String> {
+    let mut contents = String::new();
+    fs::File::open(file)
+        .and_then(|mut f| f.read_to_string(&mut contents))
+        .unwrap_or_default();
 
-    let links: Vec<String> = re.captures_iter(&contents)
-        .map(|capture| capture.get(1).unwrap().as_str().trim().to_string())
+    let link_pattern = Regex::new(r"\[\[(.*?)(?:\s*\|.*?)?\]\]").unwrap();
+    let links: Vec<String> = link_pattern
+        .captures_iter(&contents)
+        .map(|capture| capture.get(1).map_or("", |m| m.as_str()).trim().to_string())
+        .filter(|link| !link.is_empty())
         .collect();
-
-    links.into_iter().collect()
+    links.into_iter().collect::<HashSet<_>>().into_iter().collect()
 }
 
-fn extract_pages(vault_dir: &str) -> Vec<Page> {
+// Extract all markdown files from a directory
+fn extract_pages(vault_dir: &Path) -> Vec<Page> {
     let mut pages = Vec::new();
+    let md_files = search_markdown_files(vault_dir);
 
-    let (md_files, md_titles) = search_markdown_files(vault_dir);
-
-    for (file, title) in md_files.iter().zip(md_titles.iter()) {
+    for (file, title) in &md_files {
         let tags = search_tags(file);
         let links = search_links(file);
 
@@ -66,7 +76,7 @@ fn extract_pages(vault_dir: &str) -> Vec<Page> {
         });
 
         for page in &links {
-            if !md_titles.contains(&page) {
+            if !md_files.iter().any(|(_, t)| t == page) {
                 pages.push(Page {
                     title: page.to_string(),
                     tags: Vec::new(),
@@ -114,6 +124,6 @@ fn pages_to_graph(pages: Vec<Page>) -> Graph<Page, ()> {
 
 
 /// Converts an Obsidian vault to a petgraph instance
-pub fn vault_to_graph(vault_dir: &str) -> Graph<Page, ()> {
+pub fn vault_to_graph(vault_dir: &Path) -> Graph<Page, ()> {
     pages_to_graph(extract_pages(vault_dir))
 }

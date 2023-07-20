@@ -508,7 +508,7 @@ impl MyApp {
                 
                 let mut text = "Dropping files:\n".to_owned();
                 let file_path = &i.raw.hovered_files[0].path;
-                write!(text, "\n{}", file_path.as_ref().unwrap().display()).ok();
+                write!(text, "\n{}",  file_path.as_ref().unwrap().display()).ok();
 
                 text
             });
@@ -527,30 +527,6 @@ impl MyApp {
             );
         }
 
-        // Collect dropped file
-        /* 
-        ctx.input(|i| {
-            if !i.raw.dropped_files.is_empty() {
-                self.dropped_file = i.raw.dropped_files[0].clone();
-            }
-        });
-
-        // Show dropped files (if any)
-        if self.dropped_file != egui::DroppedFile::default() {
-            
-            if let Some(path) = &self.dropped_file.path {
-                if path.is_dir() {
-                    self.graph = GraphView::new(
-                        vault_to_graph(path.as_os_str().to_str().unwrap())
-                    ) 
-                }
-            };
-            
-            self.dropped_file = egui::DroppedFile::default();
-        }
-        */
-        
-
         // Show dropped file
         ctx.input(|i| {
             let dropped_file = if !i.raw.dropped_files.is_empty() {
@@ -563,7 +539,7 @@ impl MyApp {
                 if let Some(path) = &dropped_file.path {
                     if path.is_dir() {
                         self.graph = GraphView::new(
-                            vault_to_graph(path.as_os_str().to_str().unwrap())
+                            vault_to_graph(path)
                         ) 
                     }
                 };
