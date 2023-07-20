@@ -13,7 +13,7 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
     eframe::run_native(
-        "Obsidian graph analiser",
+        "Obsidian graph analyser",
         native_options,
         Box::new(|cc| Box::new(MyApp::new(cc, graph))),
     )

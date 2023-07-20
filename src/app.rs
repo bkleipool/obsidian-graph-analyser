@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::{GraphView, Page};
+use crate::{GraphView, Page, vault_parser::vault_to_graph};
 use petgraph::{
     // dot::{Config, Dot},
     graph::NodeIndex,
@@ -96,6 +96,9 @@ impl MyApp {
 // Update MyApp
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+
+        self.ui_file_drag_and_drop(ctx);
+
         // Top panel
         egui::TopBottomPanel::top("menu_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -493,5 +496,79 @@ impl MyApp {
             println!("{:?}", position);
         }
         */
+    }
+
+    fn ui_file_drag_and_drop(&mut self, ctx: &egui::Context) {
+        use egui::*;
+        use std::fmt::Write as _;
+
+        // Preview hovering file
+        if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
+            let text = ctx.input(|i| {
+                
+                let mut text = "Dropping files:\n".to_owned();
+                let file_path = &i.raw.hovered_files[0].path;
+                write!(text, "\n{}", file_path.as_ref().unwrap().display()).ok();
+
+                text
+            });
+
+            let painter =
+                ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
+
+            let screen_rect = ctx.screen_rect();
+            painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+            painter.text(
+                screen_rect.center(),
+                Align2::CENTER_CENTER,
+                text,
+                TextStyle::Heading.resolve(&ctx.style()),
+                Color32::WHITE,
+            );
+        }
+
+        // Collect dropped file
+        /* 
+        ctx.input(|i| {
+            if !i.raw.dropped_files.is_empty() {
+                self.dropped_file = i.raw.dropped_files[0].clone();
+            }
+        });
+
+        // Show dropped files (if any)
+        if self.dropped_file != egui::DroppedFile::default() {
+            
+            if let Some(path) = &self.dropped_file.path {
+                if path.is_dir() {
+                    self.graph = GraphView::new(
+                        vault_to_graph(path.as_os_str().to_str().unwrap())
+                    ) 
+                }
+            };
+            
+            self.dropped_file = egui::DroppedFile::default();
+        }
+        */
+        
+
+        // Show dropped file
+        ctx.input(|i| {
+            let dropped_file = if !i.raw.dropped_files.is_empty() {
+                i.raw.dropped_files[0].clone()
+            } else {
+                egui::DroppedFile::default()
+            };
+
+            if dropped_file != egui::DroppedFile::default() {
+                if let Some(path) = &dropped_file.path {
+                    if path.is_dir() {
+                        self.graph = GraphView::new(
+                            vault_to_graph(path.as_os_str().to_str().unwrap())
+                        ) 
+                    }
+                };
+            };
+        });
+        
     }
 }
