@@ -2,10 +2,9 @@ use petgraph::{graph::NodeIndex, Graph};
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
 
 pub mod app;
+pub mod vault_parser;
 
 /// This struct stores the Markdown page information
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -64,7 +63,7 @@ impl GraphView {
         }
     }
 
-    /// Returrn a vector of all node positions in screenspace
+    /// Return a vector of all node positions in screenspace
     pub fn node_positions(&self) -> Vec<(NodeIndex, egui::Vec2)> {
         self.nodes
             .iter()
@@ -224,70 +223,4 @@ impl GraphView {
             node.frame_pos += accel * dt;
         }
     }
-}
-
-/// This function reads the json file of the graph and converts it to a petgraph instance
-pub fn json_graph(file_name: &str) -> Graph<Page, ()> {
-    // Read the JSON file into a string
-    let mut file = File::open(file_name).expect("Failed to open file");
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .expect("Failed to read file");
-
-    // Parse the JSON string into a vector of Page structs
-    let pages: Vec<Page> = serde_json::from_str(&contents).expect("Failed to parse JSON");
-
-    // Create a directed graph
-    let mut graph: Graph<Page, ()> = Graph::new();
-
-    // Create a hashmap to quickly find nodes (pages) by their title
-    let mut title_to_node = HashMap::new();
-
-    // Add nodes (pages) to the graph and populate the hashmap
-    for page in &pages {
-        let page_index = *title_to_node.entry(page.title.clone()).or_insert_with(|| {
-            let new_page_index = graph.add_node(page.clone());
-            new_page_index
-        });
-        title_to_node.insert(page.title.clone(), page_index);
-    }
-
-    // Add edges (links) to the graph
-    for page in pages.iter() {
-        let source_node_index = title_to_node.get(&page.title).expect("Node not found");
-        for linked_page_title in page.links.iter() {
-            let target_node_index = title_to_node
-                .get(linked_page_title)
-                .expect("Node not found");
-            graph.add_edge(*source_node_index, *target_node_index, ());
-        }
-    }
-
-    /*
-    let mut page_indices = HashMap::new();
-
-    // Add nodes (pages) and edges (links) to the graph
-    for page in pages {
-        let page_index = *page_indices.entry(page.title.clone()).or_insert_with(|| {
-            let new_page_index = graph.add_node(page.clone());
-            new_page_index
-        });
-
-        for link in page.links {
-            let link_index = *page_indices.entry(link.clone()).or_insert_with(|| {
-                let new_link_index = graph.add_node(Page {
-                    title: link.clone(),
-                    tags: Vec::new(),
-                    empty: true,
-                    links: Vec::new(),
-                });
-                new_link_index
-            });
-
-            graph.add_edge(page_index, link_index, ());
-        }
-    }
-    */
-
-    graph
 }
