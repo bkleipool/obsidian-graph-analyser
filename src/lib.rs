@@ -1,4 +1,4 @@
-use petgraph::{graph::NodeIndex, Graph};
+use petgraph::{graph::{NodeIndex, EdgeIndex}, Graph};
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -72,7 +72,7 @@ impl GraphView {
     }
 
     /// Return a vector of edge start and end positions
-    pub fn edge_start_end_positions(&self) -> Vec<(egui::Vec2, egui::Vec2)> {
+    pub fn edge_start_end_positions(&self) -> Vec<(EdgeIndex, egui::Vec2, egui::Vec2)> {
         self.graph
             .edge_indices()
             .into_iter()
@@ -80,6 +80,7 @@ impl GraphView {
                 let (start_index, end_index) = self.graph.edge_endpoints(edge).unwrap();
 
                 (
+                    edge,
                     self.nodes.get(&start_index).unwrap().frame_pos,
                     self.nodes.get(&end_index).unwrap().frame_pos,
                 )

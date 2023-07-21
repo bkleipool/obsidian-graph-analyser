@@ -103,6 +103,7 @@ impl MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
+        // Look for drag-and-dropped files
         self.ui_file_drag_and_drop(ctx);
 
         // Top panel
@@ -361,23 +362,19 @@ impl MyApp {
         match self.draw_arrows {
             true => {
                 // Draw arrows
-                for (start_pos, end_pos) in self.graph.edge_start_end_positions() {
-                    //painter.arrow(
-                    //    (self.zoom * start_pos).to_pos2() + self.frame_center,
-                    //    self.zoom * (end_pos - start_pos), //egui::Vec2::new(self.zoom * end_pos[0], self.zoom * end_pos[1]),
-                    //    egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
-                    //)
-                    let origin = (self.zoom * start_pos).to_pos2() + self.frame_center;
-                    let vec = self.zoom * (end_pos - start_pos);
-                    let stroke = egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155));
+                for (_, start_pos, end_pos) in self.graph.edge_start_end_positions() {
+                    let dir = (end_pos - start_pos).normalized();
 
+                    let origin = (self.zoom * start_pos).to_pos2() + self.frame_center;
+                    let tip = origin + self.zoom * (end_pos - start_pos - self.node_size*dir);
+                    
+                    let stroke = egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155));
                     let angle = egui::emath::Rot2::from_angle(std::f32::consts::TAU / 10.0);
-                    let tip_length = match vec.length() {
-                        x if x / 8.0 < self.arrow_size => vec.length() / 8.0,
+                    
+                    let tip_length = match self.zoom * (end_pos - start_pos).length() {
+                        x if x / 8.0 < self.arrow_size => self.zoom * (end_pos - start_pos).length() / 8.0,
                         _ => self.arrow_size
-                    } ;
-                    let dir = vec.normalized();
-                    let tip = origin + vec - self.zoom*self.node_size*dir;
+                    };
                     
                     painter.line_segment([origin, tip], stroke);
                     painter.line_segment([tip, tip - tip_length * (angle * dir)], stroke);
@@ -386,14 +383,28 @@ impl MyApp {
             }
             false => {
                 // Draw lines
-                for (start_pos, end_pos) in self.graph.edge_start_end_positions() {
-                    painter.line_segment(
-                        [
-                            (self.zoom * start_pos).to_pos2() + self.frame_center,
-                            (self.zoom * end_pos).to_pos2() + self.frame_center,
-                        ],
-                        egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
-                    )
+                for (edge_index, start_pos, end_pos) in self.graph.edge_start_end_positions() {
+                    let (edge_start_node, edge_end_node) = self.graph.graph.edge_endpoints(edge_index).unwrap();
+
+                    // Check if edge is connected to hovering node
+                    if Some(edge_start_node) == self.hovering_node || Some(edge_end_node) == self.hovering_node {
+                        painter.line_segment(
+                            [
+                                (self.zoom * start_pos).to_pos2() + self.frame_center,
+                                (self.zoom * end_pos).to_pos2() + self.frame_center,
+                            ],
+                            egui::Stroke::new(self.link_width, egui::Color32::from_rgb(255, 105, 105)),
+                        )
+                    } else {
+                        painter.line_segment(
+                            [
+                                (self.zoom * start_pos).to_pos2() + self.frame_center,
+                                (self.zoom * end_pos).to_pos2() + self.frame_center,
+                            ],
+                            egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
+                        )
+                    }
+                    
                 }
             }
         }
