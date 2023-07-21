@@ -15,6 +15,8 @@ pub struct MyApp {
     frame_size: egui::Vec2,
     /// If a node is currently being dragged
     dragging_node: Option<NodeIndex>,
+    /// If a node is currently being hovered over
+    hovering_node: Option<NodeIndex>,
     /// The number of frames while which a node is being hovered over
     node_hover_time: f32,
     /// Current zoom level
@@ -29,6 +31,8 @@ pub struct MyApp {
     node_size: f32,
     /// Width of links (px)
     link_width: f32,
+    /// Size of link arrows (if enabled)
+    arrow_size: f32,
     /// Size of node label (pt)
     text_size: f32,
     /// Size of node label at which to start fading the text (pt)
@@ -69,6 +73,7 @@ impl MyApp {
             frame_center: egui::Vec2::new(640., 372.),
             frame_size: egui::Vec2::new(0., 0.),
             dragging_node: None,
+            hovering_node: None,
             node_hover_time: 0.,
             zoom: 1.0,
             zoom_step: 0.15,
@@ -76,6 +81,7 @@ impl MyApp {
             draw_labels: true,
             node_size: 8.5,
             link_width: 1.0,
+            arrow_size: 8.0,
             text_size: 8.0,
             text_fade_threshold: 4.5,
             enable_physics: true,
@@ -260,6 +266,16 @@ impl eframe::App for MyApp {
                         ui.horizontal(|ui| {
                             ui.add_sized(
                                 [80.0, 20.0],
+                                egui::DragValue::new(&mut self.arrow_size)
+                                    .speed(0.1)
+                                    .clamp_range(0.0..=15.0),
+                            );
+                            ui.label("Arrow size");
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [80.0, 20.0],
                                 egui::DragValue::new(&mut self.text_size)
                                     .speed(0.1)
                                     .clamp_range(0.0..=16.0),
@@ -346,11 +362,26 @@ impl MyApp {
             true => {
                 // Draw arrows
                 for (start_pos, end_pos) in self.graph.edge_start_end_positions() {
-                    painter.arrow(
-                        (self.zoom * start_pos).to_pos2() + self.frame_center,
-                        self.zoom * (end_pos - start_pos), //egui::Vec2::new(self.zoom * end_pos[0], self.zoom * end_pos[1]),
-                        egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
-                    )
+                    //painter.arrow(
+                    //    (self.zoom * start_pos).to_pos2() + self.frame_center,
+                    //    self.zoom * (end_pos - start_pos), //egui::Vec2::new(self.zoom * end_pos[0], self.zoom * end_pos[1]),
+                    //    egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
+                    //)
+                    let origin = (self.zoom * start_pos).to_pos2() + self.frame_center;
+                    let vec = self.zoom * (end_pos - start_pos);
+                    let stroke = egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155));
+
+                    let angle = egui::emath::Rot2::from_angle(std::f32::consts::TAU / 10.0);
+                    let tip_length = match vec.length() {
+                        x if x / 8.0 < self.arrow_size => vec.length() / 8.0,
+                        _ => self.arrow_size
+                    } ;
+                    let dir = vec.normalized();
+                    let tip = origin + vec - self.zoom*self.node_size*dir;
+                    
+                    painter.line_segment([origin, tip], stroke);
+                    painter.line_segment([tip, tip - tip_length * (angle * dir)], stroke);
+                    painter.line_segment([tip, tip - tip_length * (angle.inverse() * dir)], stroke);
                 }
             }
             false => {
@@ -369,17 +400,27 @@ impl MyApp {
 
         // Draw nodes
         for (node_index, node_pos) in self.graph.node_positions() {
-            if !self.graph.node_is_empty(node_index) {
-                painter.circle_filled(
-                    (self.zoom * node_pos).to_pos2() + self.frame_center,
-                    self.zoom * self.node_size,
-                    egui::Color32::from_rgb(255, 105, 105),
-                )
+            // Check if node is being hovered
+            if Some(node_index) != self.hovering_node {
+                // Check if node is not empty
+                if !self.graph.node_is_empty(node_index) {
+                    painter.circle_filled(
+                        (self.zoom * node_pos).to_pos2() + self.frame_center,
+                        self.zoom * self.node_size,
+                        egui::Color32::from_rgb(200, 200, 200),
+                    )
+                } else {
+                    painter.circle_filled(
+                        (self.zoom * node_pos).to_pos2() + self.frame_center,
+                        self.zoom * self.node_size,
+                        egui::Color32::from_rgb(50, 50, 50),
+                    )
+                }
             } else {
                 painter.circle_filled(
                     (self.zoom * node_pos).to_pos2() + self.frame_center,
                     self.zoom * self.node_size,
-                    egui::Color32::from_rgb(50, 50, 50),
+                    egui::Color32::from_rgb(255, 105, 105),
                 )
             }
         }
@@ -472,11 +513,12 @@ impl MyApp {
         let old_node_hover_time = self.node_hover_time;
 
         if response.hovered() && self.dragging_node == None {
-            for (_index, node_pos) in self.graph.node_positions() {
+            for (index, node_pos) in self.graph.node_positions() {
                 if ((self.zoom * node_pos) + self.frame_center - mouse_pos.to_vec2()).length()
                     <= self.zoom * self.node_size
                 {
                     self.node_hover_time += 1.;
+                    self.hovering_node = Some(index);
 
                     // ...
                     // ...
@@ -484,10 +526,12 @@ impl MyApp {
             }
 
             if old_node_hover_time == self.node_hover_time {
-                self.node_hover_time = 0.
+                self.node_hover_time = 0.;
+                self.hovering_node = None;
             }
         } else {
-            self.node_hover_time = 0.
+            self.node_hover_time = 0.;
+            self.hovering_node = None;
         }
 
         /*
