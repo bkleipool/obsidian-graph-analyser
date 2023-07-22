@@ -321,7 +321,7 @@ impl eframe::App for MyApp {
                             ui.label("Filtering query");
 
                             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                                self.graph.filter_pages(&self.filter_query)
+                                // ..
                             }
                         });
 

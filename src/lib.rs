@@ -224,92 +224,81 @@ impl GraphView {
 
 
 
-use pest::Parser;
-use pest_derive::Parser;
 
-#[derive(Parser)]
-#[grammar = "page_search/search_criteria.pest"]
-struct FilterQueryParser;
+// Define the boolean expression tree data structure
+#[derive(Debug)]
+enum BooleanExpr {
+    Query(String),
+    And(Box<BooleanExpr>, Box<BooleanExpr>),
+    Or(Box<BooleanExpr>, Box<BooleanExpr>),
+    Not(Box<BooleanExpr>),
+}
 
-impl GraphView {
-    fn filter_pages(&mut self, search_query: &str) {
-        // Parse filter query
-        let pairs = FilterQueryParser::parse(Rule::query, search_query)
-            .expect("Failed to parse search query")
-            .next()
-            .unwrap();
+#[derive(Debug)]
+enum ParsingError {
+    UnmatchedParentheses,
+    MissingOperand(String),
+    MissingOperator(String),
+    InvalidExpression(String),
+}
 
+// Helper function to check if a character is a valid query character
+fn is_valid_char(c: char) -> bool {
+    c != '(' && c != ')' && c != '&' && c != '|' && c != '!' && c != ' ' 
+}
 
-        // Set all nodes invisible
-        for (_, node) in self.nodes.iter_mut() {
-            node.visible = false
+// Recursive parser function
+fn parse_boolean_expr(expr: &str) -> Result<BooleanExpr, ParsingError> {
+    let expr = expr.trim();
+
+    // Check for the base case (single variable)
+    if expr.chars().all(is_valid_char) {
+        return Ok(BooleanExpr::Query(expr.to_string()));
+    }
+
+    // Check for NOT operator
+    if expr.starts_with('-') {
+        let inner_expr = parse_boolean_expr(&expr[1..])?;
+        return Ok(BooleanExpr::Not(Box::new(inner_expr)));
+    }
+
+    // Find the index where the AND or OR operator is located
+    let mut idx = expr.len() - 1;
+    let mut level = 0;
+
+    while idx > 0 {
+        let c = expr.chars().nth(idx).unwrap();
+        match c {
+            '(' => level -= 1,
+            ')' => level += 1,
+            '&' if level == 0 => break,
+            '|' if level == 0 => break,
+            _ => {}
         }
-    
-        // Match filter queries
-        for pair in pairs.into_inner() {
-            match pair.as_rule() {
-                Rule::title_include => {
-                    let term = pair.as_str().to_lowercase();
-                    println!("include: {term}");
+        idx -= 1;
+    }
 
-                    for (node_index, node) in self.nodes.iter_mut() {
-                        let page = self.graph.node_weight(*node_index).unwrap();
-
-                        if page.title.to_lowercase().contains(&term)
-                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
-                        {
-                            node.visible = true
-                        }
-                    }
-                },
-
-                Rule::title_exclude => {
-                    let term = pair.as_str().to_lowercase()[1..].to_string();
-                    println!("exclude: {term}");
-
-                    for (node_index, node) in self.nodes.iter_mut() {
-                        let page = self.graph.node_weight(*node_index).unwrap();
-
-                        if !page.title.to_lowercase().contains(&term)
-                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
-                        {
-                            node.visible = true
-                        }
-                    }
-                }
-
-                Rule::title_include => {
-                    let term = pair.as_str().to_lowercase();
-                    println!("include: {term}");
-
-                    for (node_index, node) in self.nodes.iter_mut() {
-                        let page = self.graph.node_weight(*node_index).unwrap();
-
-                        if page.title.to_lowercase().contains(&term)
-                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
-                        {
-                            node.visible = true
-                        }
-                    }
-                },
-
-                Rule::title_exclude => {
-                    let term = pair.as_str().to_lowercase()[1..].to_string();
-                    println!("exclude: {term}");
-
-                    for (node_index, node) in self.nodes.iter_mut() {
-                        let page = self.graph.node_weight(*node_index).unwrap();
-
-                        if !page.title.to_lowercase().contains(&term)
-                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
-                        {
-                            node.visible = true
-                        }
-                    }
-                }
-                _ => {},
-            }
+    if idx == 0 {
+        // The expression is surrounded by parentheses, so we ignore them and parse the inner part
+        if expr.starts_with('(') && expr.ends_with(')') {
+            return parse_boolean_expr(&expr[1..expr.len() - 1]);
         }
-    
+        // Invalid expression
+        if level != 0 {
+            return Err(ParsingError::UnmatchedParentheses);
+        } else if expr.chars().all(is_valid_char) {
+            return Err(ParsingError::MissingOperator(expr.to_string()));
+        } else {
+            return Err(ParsingError::InvalidExpression(expr.to_string()));
+        }
+    }
+
+    let left_expr = parse_boolean_expr(&expr[..idx])?;
+    let right_expr = parse_boolean_expr(&expr[idx + 1..])?;
+
+    match expr.chars().nth(idx).unwrap() {
+        '&' => Ok(BooleanExpr::And(Box::new(left_expr), Box::new(right_expr))),
+        '|' => Ok(BooleanExpr::Or(Box::new(left_expr), Box::new(right_expr))),
+        _ => Err(ParsingError::InvalidExpression("Bruh2".to_string())),
     }
 }
