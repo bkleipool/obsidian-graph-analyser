@@ -19,6 +19,7 @@ pub struct Page {
 pub struct Node {
     pub node_index: NodeIndex,
     pub frame_pos: egui::Vec2, // Relative to frame center
+    pub visible: bool,
 }
 
 /// This struct handles the graphical representation of the network
@@ -32,6 +33,7 @@ impl Node {
         Self {
             node_index: node_index,
             frame_pos: pos,
+            visible: true
         }
     }
 }
@@ -122,6 +124,13 @@ impl GraphView {
         }
     }
 
+    /// Returns the name of a node
+    pub fn node_is_visible(&self, index: NodeIndex) -> bool {
+        let node = self.nodes.get(&index).expect("Node not found");
+
+        node.visible
+    }
+
     /// Modify a node position
     pub fn set_node_position(&mut self, index: NodeIndex, pos: egui::Vec2) {
         if let Some(node) = self.nodes.get_mut(&index) {
@@ -182,7 +191,6 @@ impl GraphView {
                         / ((node.frame_pos - node_pos)
                             .length()
                             .powf(repelling_force_exponent));
-                    //accel += repelling_constant/node_mass * (node.frame_pos - node_pos)/(node.frame_pos - node_pos).length().powf(1.5);
                 }
             }
 
@@ -203,25 +211,105 @@ impl GraphView {
                         .length()
                         .powf(gravity_force_exponent_secondary);
             }
-            /*
-            if node.frame_pos.length() >= gravity_truncation_radius {
-                accel += gravity_constant / node_mass * -node.frame_pos
-                    / node.frame_pos.length().powf(gravity_force_exponent_primary);
-            } else {
-                accel += gravity_constant / node_mass * -node.frame_pos
-                    / gravity_truncation_radius.powf(gravity_force_exponent_primary);
-            }*/
 
             node_accel.push(accel)
         }
 
-        //println!("{:?}", node_accel);
-
         // Apply node accelerations
         for ((_, node), accel) in self.nodes.iter_mut().zip(node_accel) {
-            //node.frame_velocity += accel * dt;
-            //node.frame_pos += node.frame_velocity * dt;
             node.frame_pos += accel * dt;
         }
+    }
+}
+
+
+
+use pest::Parser;
+use pest_derive::Parser;
+
+#[derive(Parser)]
+#[grammar = "page_search/search_criteria.pest"]
+struct FilterQueryParser;
+
+impl GraphView {
+    fn filter_pages(&mut self, search_query: &str) {
+        // Parse filter query
+        let pairs = FilterQueryParser::parse(Rule::query, search_query)
+            .expect("Failed to parse search query")
+            .next()
+            .unwrap();
+
+
+        // Set all nodes invisible
+        for (_, node) in self.nodes.iter_mut() {
+            node.visible = false
+        }
+    
+        // Match filter queries
+        for pair in pairs.into_inner() {
+            match pair.as_rule() {
+                Rule::title_include => {
+                    let term = pair.as_str().to_lowercase();
+                    println!("include: {term}");
+
+                    for (node_index, node) in self.nodes.iter_mut() {
+                        let page = self.graph.node_weight(*node_index).unwrap();
+
+                        if page.title.to_lowercase().contains(&term)
+                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
+                        {
+                            node.visible = true
+                        }
+                    }
+                },
+
+                Rule::title_exclude => {
+                    let term = pair.as_str().to_lowercase()[1..].to_string();
+                    println!("exclude: {term}");
+
+                    for (node_index, node) in self.nodes.iter_mut() {
+                        let page = self.graph.node_weight(*node_index).unwrap();
+
+                        if !page.title.to_lowercase().contains(&term)
+                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
+                        {
+                            node.visible = true
+                        }
+                    }
+                }
+
+                Rule::title_include => {
+                    let term = pair.as_str().to_lowercase();
+                    println!("include: {term}");
+
+                    for (node_index, node) in self.nodes.iter_mut() {
+                        let page = self.graph.node_weight(*node_index).unwrap();
+
+                        if page.title.to_lowercase().contains(&term)
+                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
+                        {
+                            node.visible = true
+                        }
+                    }
+                },
+
+                Rule::title_exclude => {
+                    let term = pair.as_str().to_lowercase()[1..].to_string();
+                    println!("exclude: {term}");
+
+                    for (node_index, node) in self.nodes.iter_mut() {
+                        let page = self.graph.node_weight(*node_index).unwrap();
+
+                        if !page.title.to_lowercase().contains(&term)
+                            || page.tags.iter().any(|tag| tag.to_lowercase().contains(&term))
+                        {
+                            node.visible = true
+                        }
+                    }
+                }
+                _ => {},
+            }
+        }
+    
     }
 }

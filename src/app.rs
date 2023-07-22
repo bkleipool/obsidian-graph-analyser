@@ -59,6 +59,8 @@ pub struct MyApp {
     gravity_truncation_radius: f32,
     /// Simulation timestep
     timestep: f32,
+    /// Query used when filtering nodes in the graph
+    filter_query: String,
 }
 
 impl MyApp {
@@ -95,6 +97,7 @@ impl MyApp {
             gravity_switch_radius: 1000.0,
             gravity_truncation_radius: 350.0,
             timestep: 0.400,
+            filter_query: String::default(),
         }
     }
 }
@@ -167,7 +170,7 @@ impl eframe::App for MyApp {
                                     .speed(0.01)
                                     .clamp_range(0.5..=2.5),
                             );
-                            ui.label("Gravity force exponent (close to center)");
+                            ui.label("1st Gravity force exponent"); // (close to center)
                         });
 
                         ui.horizontal(|ui| {
@@ -177,7 +180,7 @@ impl eframe::App for MyApp {
                                     .speed(0.01)
                                     .clamp_range(0.5..=2.5),
                             );
-                            ui.label("Gravity force exponent (far from center)");
+                            ui.label("2nd Gravity force exponent"); //(far from center)
                         });
 
                         ui.horizontal(|ui| {
@@ -306,10 +309,28 @@ impl eframe::App for MyApp {
                         // ui.add(egui::DragValue::new(&mut self.node_hover_time));
                     });
 
-                egui::CollapsingHeader::new("Display settings")
+                egui::CollapsingHeader::new("Filtering settings")
                     .default_open(true)
                     .show(ui, |ui| {
-                        ui.label("...");
+
+                        ui.horizontal(|ui| {
+                            let response = ui.add_sized(
+                                [100.0, 20.0],
+                                egui::TextEdit::singleline(&mut self.filter_query)
+                            );
+                            ui.label("Filtering query");
+
+                            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                self.graph.filter_pages(&self.filter_query)
+                            }
+                        });
+
+
+                        if ui.button("Show all nodes").clicked() {
+                            for (_, node) in self.graph.nodes.iter_mut() {
+                                node.visible = true
+                            }
+                        }
                     });
 
                 egui::CollapsingHeader::new("Filter settings")
@@ -386,53 +407,59 @@ impl MyApp {
                 for (edge_index, start_pos, end_pos) in self.graph.edge_start_end_positions() {
                     let (edge_start_node, edge_end_node) = self.graph.graph.edge_endpoints(edge_index).unwrap();
 
-                    // Check if edge is connected to hovering node
-                    if Some(edge_start_node) == self.hovering_node || Some(edge_end_node) == self.hovering_node {
-                        painter.line_segment(
-                            [
-                                (self.zoom * start_pos).to_pos2() + self.frame_center,
-                                (self.zoom * end_pos).to_pos2() + self.frame_center,
-                            ],
-                            egui::Stroke::new(self.link_width, egui::Color32::from_rgb(255, 105, 105)),
-                        )
-                    } else {
-                        painter.line_segment(
-                            [
-                                (self.zoom * start_pos).to_pos2() + self.frame_center,
-                                (self.zoom * end_pos).to_pos2() + self.frame_center,
-                            ],
-                            egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
-                        )
-                    }
+                    if self.graph.node_is_visible(edge_start_node) && self.graph.node_is_visible(edge_end_node) {
                     
+                        // Check if edge is connected to hovering node
+                        if Some(edge_start_node) == self.hovering_node || Some(edge_end_node) == self.hovering_node {
+                            painter.line_segment(
+                                [
+                                    (self.zoom * start_pos).to_pos2() + self.frame_center,
+                                    (self.zoom * end_pos).to_pos2() + self.frame_center,
+                                ],
+                                egui::Stroke::new(self.link_width, egui::Color32::from_rgb(255, 105, 105)),
+                            )
+                        } else {
+                            painter.line_segment(
+                                [
+                                    (self.zoom * start_pos).to_pos2() + self.frame_center,
+                                    (self.zoom * end_pos).to_pos2() + self.frame_center,
+                                ],
+                                egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
+                            )
+                        }
+
+                    }
                 }
             }
         }
 
         // Draw nodes
         for (node_index, node_pos) in self.graph.node_positions() {
-            // Check if node is being hovered
-            if Some(node_index) != self.hovering_node {
-                // Check if node is not empty
-                if !self.graph.node_is_empty(node_index) {
-                    painter.circle_filled(
-                        (self.zoom * node_pos).to_pos2() + self.frame_center,
-                        self.zoom * self.node_size,
-                        egui::Color32::from_rgb(200, 200, 200),
-                    )
+            if self.graph.node_is_visible(node_index) {
+
+                // Check if node is being hovered
+                if Some(node_index) != self.hovering_node {
+                    // Check if node is not empty
+                    if !self.graph.node_is_empty(node_index) {
+                        painter.circle_filled(
+                            (self.zoom * node_pos).to_pos2() + self.frame_center,
+                            self.zoom * self.node_size,
+                            egui::Color32::from_rgb(200, 200, 200),
+                        )
+                    } else {
+                        painter.circle_filled(
+                            (self.zoom * node_pos).to_pos2() + self.frame_center,
+                            self.zoom * self.node_size,
+                            egui::Color32::from_rgb(50, 50, 50),
+                        )
+                    }
                 } else {
                     painter.circle_filled(
                         (self.zoom * node_pos).to_pos2() + self.frame_center,
                         self.zoom * self.node_size,
-                        egui::Color32::from_rgb(50, 50, 50),
+                        egui::Color32::from_rgb(255, 105, 105),
                     )
                 }
-            } else {
-                painter.circle_filled(
-                    (self.zoom * node_pos).to_pos2() + self.frame_center,
-                    self.zoom * self.node_size,
-                    egui::Color32::from_rgb(255, 105, 105),
-                )
             }
         }
 
@@ -444,6 +471,7 @@ impl MyApp {
 
                 if (0.0..=self.frame_size.x).contains(&text_pos.x)
                     && (0.0..=self.frame_size.y).contains(&text_pos.y)
+                    && self.graph.node_is_visible(node_index)
                 {
                     painter.text(
                         text_pos.to_pos2(),
