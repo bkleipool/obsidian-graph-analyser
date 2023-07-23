@@ -126,6 +126,15 @@ impl GraphView {
         }
     }
 
+    /// Returns the name of a node
+    pub fn node_tags(&self, index: NodeIndex) -> Vec<String> {
+        if let Some(page) = self.graph.node_weight(index) {
+            page.tags.clone()
+        } else {
+            Vec::default()
+        }
+    }
+
     /// Returns a copy of the associated page of a node
     pub fn node_page(&self, index: &NodeIndex) -> Option<Page> {
         if let Some(page) = self.graph.node_weight(*index) {

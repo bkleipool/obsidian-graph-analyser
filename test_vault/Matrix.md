@@ -1,3 +1,7 @@
+---
+tag: mathematics/linear_algebra, topic
+---
+
 In [[Linear algebra]], a matrix is a rectangular array of numbers. Visually, a matrix can represent a [[Linear map |linear map]] which maps a [[Vector |vector]] to another vector, where every component of the output vector is a _linear combination_ of the components of the input vector, which makes it a _linear transformation_^[3Blue1Brown, Essence of Linear Algebra Ep3: https://www.youtube.com/watch?v=kYB8IZa5AuE&list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab&index=3].
 
 ## Mathematical definition

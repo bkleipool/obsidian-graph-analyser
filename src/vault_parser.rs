@@ -34,7 +34,7 @@ fn search_tags(file: &Path) -> Vec<String> {
         .and_then(|mut f| f.read_to_string(&mut contents))
         .unwrap_or_default();
 
-    let tag_pattern = Regex::new(r"---\n\s*tags: (.*?)\n---").unwrap();
+    let tag_pattern = Regex::new(r"---\n\s*(?:tags: |tag: )(.*?)\n---").unwrap();
     if let Some(captures) = tag_pattern.captures(&contents) {
         let tags_string = captures.get(1).unwrap().as_str().trim();
         let tags: Vec<String> = tags_string.split(',').map(|tag| tag.trim().to_string()).collect();
