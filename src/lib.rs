@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 pub mod app;
 pub mod vault_parser;
+pub mod filtering;
 
 /// This struct stores the Markdown page information
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -19,6 +20,7 @@ pub struct Page {
 pub struct Node {
     pub node_index: NodeIndex,
     pub frame_pos: egui::Vec2, // Relative to frame center
+    pub visible: bool,
 }
 
 /// This struct handles the graphical representation of the network
@@ -32,6 +34,7 @@ impl Node {
         Self {
             node_index: node_index,
             frame_pos: pos,
+            visible: true
         }
     }
 }
@@ -122,6 +125,22 @@ impl GraphView {
         }
     }
 
+    /// Returns a copy of the associated page of a node
+    pub fn node_page(&self, index: &NodeIndex) -> Option<Page> {
+        if let Some(page) = self.graph.node_weight(*index) {
+            Some(page.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Returns the name of a node
+    pub fn node_is_visible(&self, index: NodeIndex) -> bool {
+        let node = self.nodes.get(&index).expect("Node not found");
+
+        node.visible
+    }
+
     /// Modify a node position
     pub fn set_node_position(&mut self, index: NodeIndex, pos: egui::Vec2) {
         if let Some(node) = self.nodes.get_mut(&index) {
@@ -182,7 +201,6 @@ impl GraphView {
                         / ((node.frame_pos - node_pos)
                             .length()
                             .powf(repelling_force_exponent));
-                    //accel += repelling_constant/node_mass * (node.frame_pos - node_pos)/(node.frame_pos - node_pos).length().powf(1.5);
                 }
             }
 
@@ -203,25 +221,15 @@ impl GraphView {
                         .length()
                         .powf(gravity_force_exponent_secondary);
             }
-            /*
-            if node.frame_pos.length() >= gravity_truncation_radius {
-                accel += gravity_constant / node_mass * -node.frame_pos
-                    / node.frame_pos.length().powf(gravity_force_exponent_primary);
-            } else {
-                accel += gravity_constant / node_mass * -node.frame_pos
-                    / gravity_truncation_radius.powf(gravity_force_exponent_primary);
-            }*/
 
             node_accel.push(accel)
         }
 
-        //println!("{:?}", node_accel);
-
         // Apply node accelerations
         for ((_, node), accel) in self.nodes.iter_mut().zip(node_accel) {
-            //node.frame_velocity += accel * dt;
-            //node.frame_pos += node.frame_velocity * dt;
             node.frame_pos += accel * dt;
         }
     }
 }
+
+
