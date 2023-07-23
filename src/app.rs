@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::{GraphView, Page, vault_parser::vault_to_graph, filtering::{parse_boolean_expr, evaluate_expr, ParsingError}};
+use crate::{GraphView, Page, vault_parser::vault_to_graph, filtering::ParsingError};
 use petgraph::{
     // dot::{Config, Dot},
     graph::NodeIndex,
@@ -326,28 +326,7 @@ impl eframe::App for MyApp {
                             ui.label("Filtering");
 
                             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                                let expr_result = parse_boolean_expr(&self.filter_query);
-                                
-                                // Check if bool_expr is parsed successfully
-                                match expr_result {
-                                    Ok(bool_expr) => {
-                                        self.filtering_error = None;
-
-                                        for (node_index, node) in &mut self.graph.nodes {
-                                            // Extract page from node and evaluate expression
-                                            if let Some(page) = self.graph.graph.node_weight(*node_index) {
-                                                if evaluate_expr(&bool_expr, &page) {
-                                                    node.visible = true
-                                                } else {
-                                                    node.visible = false
-                                                }
-                                            }
-                                        }
-                                    },
-                                    Err(parsing_error) => {
-                                        self.filtering_error = Some(parsing_error)
-                                    },
-                                }
+                                self.filtering_error = self.graph.filter_nodes(&self.filter_query);
                             }
                         });
 

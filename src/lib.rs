@@ -1,3 +1,4 @@
+use filtering::{ParsingError, parse_boolean_expr, evaluate_expr};
 use petgraph::{graph::{NodeIndex, EdgeIndex}, Graph};
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
@@ -145,6 +146,61 @@ impl GraphView {
     pub fn set_node_position(&mut self, index: NodeIndex, pos: egui::Vec2) {
         if let Some(node) = self.nodes.get_mut(&index) {
             node.frame_pos = pos;
+        }
+    }
+
+    /// Set node visibilities based on a filtering expression
+    pub fn filter_nodes(&mut self, filter_query: &str) -> Option<ParsingError> {
+        let expr_result = parse_boolean_expr(&filter_query);
+                                
+        // Check if bool_expr is parsed successfully
+        match expr_result {
+            Ok(bool_expr) => {
+                let mut empty_pages: Vec<(NodeIndex, Page)> = Vec::new(); // Evaluate empty pages last
+
+                // Iterate over nodes and evaluate non-empty pages, store empty pages
+                for (node_index, node) in &mut self.nodes {
+                    // Extract page from node and evaluate expression
+                    if let Some(page) = self.graph.node_weight(*node_index) {
+                        if !page.empty {
+                            if evaluate_expr(&bool_expr, &page) {
+                                node.visible = true
+                            } else {
+                                node.visible = false
+                            }
+                        } else {
+                            empty_pages.push((*node_index, page.clone()))
+                        }
+                    }
+                }
+
+                // Evaluate empty pages based on parent node
+                for (node_index, _page) in empty_pages {
+                    let parent_node_index = self.graph.neighbors_undirected(node_index).nth(0).unwrap();
+                    let parent_is_visible = self.nodes.get(&parent_node_index).unwrap().visible;
+                    let mut node = self.nodes.get_mut(&node_index).unwrap();
+
+                    if parent_is_visible {
+                        node.visible = true
+                    } else {
+                        node.visible = false
+                    }
+                    /*
+                    if evaluate_expr(&bool_expr, &page) {
+                        node.visible = true
+                    } else {
+                        node.visible = false
+                    }
+                    */
+                }
+                
+                
+
+                None
+            },
+            Err(parsing_error) => {
+                Some(parsing_error)
+            },
         }
     }
 
