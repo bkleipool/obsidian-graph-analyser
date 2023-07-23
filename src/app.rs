@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::{GraphView, Page, vault_parser::vault_to_graph, parse_boolean_expr, evaluate_expr, ParsingError};
+use crate::{GraphView, Page, vault_parser::vault_to_graph, filtering::{parse_boolean_expr, evaluate_expr, ParsingError}};
 use petgraph::{
     // dot::{Config, Dot},
     graph::NodeIndex,
