@@ -4,6 +4,7 @@ use obsidian_graph::{app::MyApp, vault_parser::vault_to_graph};
 // use petgraph::dot::{Config, Dot};
 
 
+
 fn main() -> eframe::Result<()> {
     let graph = vault_to_graph(&Path::new("test_vault"));
     //println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));

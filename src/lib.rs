@@ -258,7 +258,7 @@ pub enum ParsingError {
 
 // Helper function to check if a character is a valid query character
 fn is_valid_char(c: char) -> bool {
-    c != '(' && c != ')' && c != '&' && c != '|' && c != '!' && c != ' ' 
+    c != '(' && c != ')' && c != '&' && c != '|' && c != '-' && c != ' ' 
 }
 
 /// Turns a string into a boolean syntax tree (recursively)

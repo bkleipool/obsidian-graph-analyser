@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::{GraphView, Page, vault_parser::vault_to_graph, parse_boolean_expr, evaluate_expr};
+use crate::{GraphView, Page, vault_parser::vault_to_graph, parse_boolean_expr, evaluate_expr, ParsingError};
 use petgraph::{
     // dot::{Config, Dot},
     graph::NodeIndex,
@@ -61,6 +61,8 @@ pub struct MyApp {
     timestep: f32,
     /// Query used when filtering nodes in the graph
     filter_query: String,
+    /// Error encountered when parsing filtering expression (if any)
+    filtering_error: Option<ParsingError>
 }
 
 impl MyApp {
@@ -86,6 +88,7 @@ impl MyApp {
             arrow_size: 8.0,
             text_size: 8.0,
             text_fade_threshold: 4.5,
+
             enable_physics: true,
             gravity_force: 400.0,
             repellant_force: 350.0,
@@ -97,7 +100,9 @@ impl MyApp {
             gravity_switch_radius: 1000.0,
             gravity_truncation_radius: 350.0,
             timestep: 0.400,
+
             filter_query: String::default(),
+            filtering_error: None,
         }
     }
 }
@@ -315,33 +320,41 @@ impl eframe::App for MyApp {
 
                         ui.horizontal(|ui| {
                             let response = ui.add_sized(
-                                [100.0, 20.0],
+                                [120.0, 20.0],
                                 egui::TextEdit::singleline(&mut self.filter_query)
                             );
-                            ui.label("Filtering query");
+                            ui.label("Filtering");
 
                             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                                let bool_expr = parse_boolean_expr(&self.filter_query);
+                                let expr_result = parse_boolean_expr(&self.filter_query);
                                 
                                 // Check if bool_expr is parsed successfully
-                                if bool_expr.is_ok() {
-                                    for (node_index, node) in &mut self.graph.nodes {
-                                        // Extract page from node and evaluate expression
-                                        if let Some(page) = self.graph.graph.node_weight(*node_index) {
-                                            if evaluate_expr(&bool_expr.as_ref().ok().unwrap(), &page) {
-                                                node.visible = true
-                                            } else {
-                                                node.visible = false
+                                match expr_result {
+                                    Ok(bool_expr) => {
+                                        self.filtering_error = None;
+
+                                        for (node_index, node) in &mut self.graph.nodes {
+                                            // Extract page from node and evaluate expression
+                                            if let Some(page) = self.graph.graph.node_weight(*node_index) {
+                                                if evaluate_expr(&bool_expr, &page) {
+                                                    node.visible = true
+                                                } else {
+                                                    node.visible = false
+                                                }
                                             }
                                         }
-                                    }
-                                } else {
-                                    
+                                    },
+                                    Err(parsing_error) => {
+                                        self.filtering_error = Some(parsing_error)
+                                    },
                                 }
-                                
-                                
                             }
                         });
+
+                        if let Some(parsing_error) = &self.filtering_error {
+                            ui.label("Parsing error");
+                        }
+                        
 
 
                         if ui.button("Show all nodes").clicked() {
