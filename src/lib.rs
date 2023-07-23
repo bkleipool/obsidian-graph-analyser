@@ -126,7 +126,7 @@ impl GraphView {
         }
     }
 
-    /// Returns the name of a node
+    /// Returns the tags of a node
     pub fn node_tags(&self, index: NodeIndex) -> Vec<String> {
         if let Some(page) = self.graph.node_weight(index) {
             page.tags.clone()
@@ -144,7 +144,7 @@ impl GraphView {
         }
     }
 
-    /// Returns the name of a node
+    /// Returns the visibility of a node
     pub fn node_is_visible(&self, index: NodeIndex) -> bool {
         let node = self.nodes.get(&index).expect("Node not found");
 
@@ -231,64 +231,79 @@ impl GraphView {
 
         // Calculate node accelerations
         for (index, node) in self.nodes.iter() {
-            let mut accel: egui::Vec2 = egui::Vec2::new(0., 0.);
+            if node.visible {
+                let mut accel: egui::Vec2 = egui::Vec2::new(0., 0.);
 
-            // Retrieve neighbor coordinates
-            let neighbors: Vec<egui::Vec2> = self
-                .graph
-                .neighbors_undirected(*index)
-                .map(|node_index| self.nodes.get(&node_index).unwrap().frame_pos)
-                .collect();
-
-            // Get acceleration due to springs
-            for neighbor_pos in neighbors.iter() {
-                let neighbor_accel = spring_constant / node_mass
-                    * (*neighbor_pos - node.frame_pos)
-                    * (1.0 - spring_length / ((*neighbor_pos - node.frame_pos).length()) + 1.0)
-                        .log10();
-
-                if !neighbor_accel.any_nan() {
-                    accel += neighbor_accel
+                // Retrieve neighbor coordinates
+                let neighbors: Vec<egui::Vec2> = self
+                    .graph
+                    .neighbors_undirected(*index)
+                    .filter_map(|neigbor_node_index| {
+                        let neighbor_node = self.nodes.get(&neigbor_node_index).unwrap();
+                        if neighbor_node.visible {
+                            Some(neighbor_node.frame_pos)
+                        } else {
+                            None
+                        }
+                    }).collect();
+    
+                // Get acceleration due to springs
+                for neighbor_pos in neighbors.iter() {
+                    let neighbor_accel = spring_constant / node_mass
+                        * (*neighbor_pos - node.frame_pos)
+                        * (1.0 - spring_length / ((*neighbor_pos - node.frame_pos).length()) + 1.0)
+                            .log10();
+    
+                    if !neighbor_accel.any_nan() {
+                        accel += neighbor_accel
+                    }
                 }
-            }
-
-            // Retrieve coordinates of all nodes
-            let node_coords: Vec<egui::Vec2> = self
-                .nodes
-                .iter()
-                .map(|(_, other_node)| other_node.frame_pos)
-                .collect();
-
-            // Get repellant forces
-            for node_pos in node_coords {
-                if (node.frame_pos - node_pos).length() >= 0.1 {
-                    accel += repelling_constant / node_mass * (node.frame_pos - node_pos)
-                        / ((node.frame_pos - node_pos)
+    
+                // Retrieve coordinates of all nodes
+                let node_coords: Vec<egui::Vec2> = self
+                    .nodes
+                    .iter()
+                    .filter_map(|(_, other_node)| {
+                        if other_node.visible {
+                            Some(other_node.frame_pos)
+                        } else {
+                            None
+                        }
+                    }).collect();
+    
+                // Get repellant forces
+                for node_pos in node_coords {
+                    if (node.frame_pos - node_pos).length() >= 0.1 {
+                        accel += repelling_constant / node_mass * (node.frame_pos - node_pos)
+                            / ((node.frame_pos - node_pos)
+                                .length()
+                                .powf(repelling_force_exponent));
+                    }
+                }
+    
+                // Add center acceleration
+                if node.frame_pos.length() <= gravity_truncation_radius {
+                    accel += gravity_constant / node_mass * -node.frame_pos
+                        / gravity_truncation_radius.powf(gravity_force_exponent_primary);
+                } else if node.frame_pos.length() <= gravity_switch_radius {
+                    accel += gravity_constant / node_mass * -node.frame_pos
+                        / node.frame_pos.length().powf(gravity_force_exponent_primary);
+                } else {
+                    accel += gravity_constant / node_mass * 1.0
+                        / gravity_switch_radius
+                            .powf(gravity_force_exponent_primary - gravity_force_exponent_secondary)
+                        * -node.frame_pos
+                        / node
+                            .frame_pos
                             .length()
-                            .powf(repelling_force_exponent));
+                            .powf(gravity_force_exponent_secondary);
                 }
-            }
-
-            // Add center acceleration
-            if node.frame_pos.length() <= gravity_truncation_radius {
-                accel += gravity_constant / node_mass * -node.frame_pos
-                    / gravity_truncation_radius.powf(gravity_force_exponent_primary);
-            } else if node.frame_pos.length() <= gravity_switch_radius {
-                accel += gravity_constant / node_mass * -node.frame_pos
-                    / node.frame_pos.length().powf(gravity_force_exponent_primary);
+    
+                node_accel.push(accel)
             } else {
-                accel += gravity_constant / node_mass * 1.0
-                    / gravity_switch_radius
-                        .powf(gravity_force_exponent_primary - gravity_force_exponent_secondary)
-                    * -node.frame_pos
-                    / node
-                        .frame_pos
-                        .length()
-                        .powf(gravity_force_exponent_secondary);
+                node_accel.push(egui::Vec2::new(0., 0.))
             }
-
-            node_accel.push(accel)
-        }
+        };
 
         // Apply node accelerations
         for ((_, node), accel) in self.nodes.iter_mut().zip(node_accel) {
