@@ -320,7 +320,7 @@ impl eframe::App for MyApp {
 
                         ui.horizontal(|ui| {
                             let response = ui.add_sized(
-                                [120.0, 20.0],
+                                [150.0, 20.0],
                                 egui::TextEdit::singleline(&mut self.filter_query)
                             );
                             ui.label("Filtering");
@@ -352,7 +352,15 @@ impl eframe::App for MyApp {
                         });
 
                         if let Some(parsing_error) = &self.filtering_error {
-                            ui.label("Parsing error");
+                            let text = match parsing_error {
+                                ParsingError::InvalidExpression(expr) => "Invalid expression: ".to_owned()+expr,
+                                ParsingError::MissingOperand(expr) => "Missing operand: ".to_owned()+expr,
+                                ParsingError::MissingOperator(expr) => "Missing operator: ".to_owned()+expr,
+                                ParsingError::UnmatchedParentheses => "Unmatched parentheses".to_string(),
+                            };
+                            ui.label(text);
+                        } else {
+                            ui.label("");
                         }
                         
 
