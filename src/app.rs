@@ -1,5 +1,5 @@
 use eframe::egui;
-use crate::{GraphView, Page, vault_parser::vault_to_graph};
+use crate::{GraphView, Page, vault_parser::vault_to_graph, parse_boolean_expr, evaluate_expr};
 use petgraph::{
     // dot::{Config, Dot},
     graph::NodeIndex,
@@ -321,7 +321,25 @@ impl eframe::App for MyApp {
                             ui.label("Filtering query");
 
                             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                                // ..
+                                let bool_expr = parse_boolean_expr(&self.filter_query);
+                                
+                                // Check if bool_expr is parsed successfully
+                                if bool_expr.is_ok() {
+                                    for (node_index, node) in &mut self.graph.nodes {
+                                        // Extract page from node and evaluate expression
+                                        if let Some(page) = self.graph.graph.node_weight(*node_index) {
+                                            if evaluate_expr(&bool_expr.as_ref().ok().unwrap(), &page) {
+                                                node.visible = true
+                                            } else {
+                                                node.visible = false
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    
+                                }
+                                
+                                
                             }
                         });
 
