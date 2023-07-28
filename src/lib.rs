@@ -11,23 +11,35 @@ pub mod app;
 pub mod filtering;
 pub mod vault_parser;
 
-/// This struct stores the Markdown page information
+/// This struct stores the Markdown page information.
+/// 
+/// Pages are made when the [vault_parser] extracts the contents of a vault,
+/// which then act as node weights in a [Graph](petgraph::Graph) instance.
+/// [Nodes](Node) handle the graphical representations of Pages.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Page {
+    /// Title of the page
     pub title: String,
+    /// Tags of the page
     pub tags: Vec<String>,
+    /// Whether the page is empty
     pub empty: bool,
-    pub links: Vec<String>,
+    links: Vec<String>,
 }
 
-/// This struct stores the graphical representation of a [Page]
+/// This struct stores the graphical representation of a [Page].
+/// 
+/// Nodes are used by the [GraphView] struct to keep track of the graph layout, filtering and grouping. 
 pub struct Node {
+    /// Node index corresponding to the [Page] in the [Graph](petgraph::Graph)
     pub node_index: NodeIndex,
-    pub frame_pos: egui::Vec2, // Relative to frame center
+    /// Position in pixels (relative to frame center)
+    pub frame_pos: egui::Vec2, 
+    /// Whether the node is visible (for filtering, etc.)
     pub visible: bool,
 }
 
-/// This struct handles the graphical representation of the network
+/// This struct handles the graphical representation of the node graph.
 pub struct GraphView {
     graph: Graph<Page, ()>,
     nodes: HashMap<NodeIndex, Node>,
@@ -70,7 +82,7 @@ impl GraphView {
         }
     }
 
-    /// Return a vector of all node positions in screenspace
+    /// Return a vector of all node positions in screenspace, with their corresponding node index
     pub fn node_positions(&self) -> Vec<(NodeIndex, egui::Vec2)> {
         self.nodes
             .iter()
@@ -78,7 +90,7 @@ impl GraphView {
             .collect()
     }
 
-    /// Return a vector of edge start and end positions
+    /// Return a vector of edge start and end positions in screenspace
     pub fn edge_start_end_positions(&self) -> Vec<(EdgeIndex, egui::Vec2, egui::Vec2)> {
         self.graph
             .edge_indices()
@@ -95,23 +107,16 @@ impl GraphView {
             .collect()
     }
 
-    /// Return a vector of edge start and end positions
-    pub fn edge_origin_magnitudes(&self) -> Vec<(egui::Vec2, egui::Vec2)> {
-        self.graph
-            .edge_indices()
-            .into_iter()
-            .map(|edge| {
-                let (start_index, end_index) = self.graph.edge_endpoints(edge).unwrap();
-
-                (
-                    self.nodes.get(&start_index).unwrap().frame_pos,
-                    self.nodes.get(&end_index).unwrap().frame_pos,
-                )
-            })
-            .collect()
+    /// Returns a copy of the associated page of a node
+    pub fn node_page(&self, index: &NodeIndex) -> Option<Page> {
+        if let Some(page) = self.graph.node_weight(*index) {
+            Some(page.clone())
+        } else {
+            None
+        }
     }
 
-    /// Checks if a node in the graph is empty
+    /// Checks if the associated page of a node is empty
     pub fn node_is_empty(&self, index: NodeIndex) -> bool {
         if let Some(page) = self.graph.node_weight(index) {
             page.empty
@@ -120,7 +125,7 @@ impl GraphView {
         }
     }
 
-    /// Returns the name of a node
+    /// Returns the title of the associated page of a node
     pub fn node_title(&self, index: NodeIndex) -> String {
         if let Some(page) = self.graph.node_weight(index) {
             page.title.to_string()
@@ -129,21 +134,12 @@ impl GraphView {
         }
     }
 
-    /// Returns the tags of a node
+    /// Returns the tags of the associated page of a node
     pub fn node_tags(&self, index: NodeIndex) -> Vec<String> {
         if let Some(page) = self.graph.node_weight(index) {
             page.tags.clone()
         } else {
             Vec::default()
-        }
-    }
-
-    /// Returns a copy of the associated page of a node
-    pub fn node_page(&self, index: &NodeIndex) -> Option<Page> {
-        if let Some(page) = self.graph.node_weight(*index) {
-            Some(page.clone())
-        } else {
-            None
         }
     }
 
@@ -216,6 +212,7 @@ impl GraphView {
         }
     }
 
+    /// Advance the physics by 1 timestep
     pub fn physics_timestep(
         &mut self,
         node_mass: f32,

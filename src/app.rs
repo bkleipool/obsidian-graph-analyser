@@ -1,3 +1,5 @@
+//! This module handles the GUI representation of the program
+
 use crate::{filtering::ParsingError, vault_parser::vault_to_graph, GraphView, Page};
 use eframe::egui;
 use petgraph::{

@@ -1,10 +1,12 @@
-// (A & tag:#B) | (C & -tag:#D) -> expression (describes boolean logic operations)
-// tag:#B -> filter (describes specific field which is filtered)
-// B -> query (regex which returns true / false)
+//! This module helps with evaluating filtering expressions
+//! 
+//! - `(A & tag:#B) | (C & -tag:#D)` -> expression (describes boolean logic operations)
+//! - `tag:#B` -> filter (describes specific field which is filtered)
+//! - `B` -> query (regex which returns true / false)
 
 use crate::Page;
 
-// Define the boolean expression tree data structure
+/// Defines the boolean expression tree data structure
 #[derive(Debug)]
 pub enum BooleanExpr {
     Not(Box<BooleanExpr>),
@@ -13,6 +15,7 @@ pub enum BooleanExpr {
     Filter(String),
 }
 
+/// Describes which parsing error occured in [parse_boolean_expr]
 #[derive(Debug)]
 pub enum ParsingError {
     UnmatchedParentheses,
@@ -27,9 +30,9 @@ fn is_valid_char(c: char) -> bool {
 }
 
 /// Turns a string into a boolean syntax tree (recursively)
-/// & = AND operator
-/// | = OR operator
-/// - = NOT operator
+/// - `&` = AND operator
+/// - `|` = OR operator
+/// - `-` = NOT operator
 pub fn parse_boolean_expr(expr: &str) -> Result<BooleanExpr, ParsingError> {
     let expr = expr.trim();
 
@@ -85,7 +88,7 @@ pub fn parse_boolean_expr(expr: &str) -> Result<BooleanExpr, ParsingError> {
     }
 }
 
-// Evaluates a (nested) boolean expression for some input [Page]
+/// Evaluates a (nested) boolean expression for some input [Page]
 pub fn evaluate_expr(expr: &BooleanExpr, input: &Page) -> bool {
     match expr {
         BooleanExpr::Not(inner_expr) => !evaluate_expr(inner_expr.as_ref(), input),
@@ -101,8 +104,8 @@ pub fn evaluate_expr(expr: &BooleanExpr, input: &Page) -> bool {
     }
 }
 
-// Evaluates a filter for some input [Page]
-fn evaluate_filter(filter: &str, input: &Page) -> bool {
+/// Evaluates a filter for some input [Page]
+pub fn evaluate_filter(filter: &str, input: &Page) -> bool {
     // Page filter
     if filter.starts_with("title:") {
         let query = filter.strip_prefix("title:").unwrap();

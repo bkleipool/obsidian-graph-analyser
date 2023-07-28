@@ -1,3 +1,5 @@
+//! This module parses ObsidianMD vaults into Rust-readable structs
+
 use petgraph::Graph;
 use regex::Regex;
 use std::{
@@ -76,8 +78,8 @@ fn search_links(file: &Path) -> Vec<String> {
         .collect()
 }
 
-// Extract all markdown files from a directory
-fn extract_pages(vault_dir: &Path) -> Vec<Page> {
+/// Extract all markdown files from a directory
+pub fn extract_pages(vault_dir: &Path) -> Vec<Page> {
     let mut pages = Vec::new();
     let md_files = search_markdown_files(vault_dir);
 
@@ -107,8 +109,8 @@ fn extract_pages(vault_dir: &Path) -> Vec<Page> {
     pages
 }
 
-// Reads a vector of Page structs and converts it to a petgraph instance
-fn pages_to_graph(pages: Vec<Page>) -> Graph<Page, ()> {
+/// Reads a vector of Page structs and converts it to a petgraph instance
+pub fn pages_to_graph(pages: Vec<Page>) -> Graph<Page, ()> {
     // Create a directed graph
     let mut graph: Graph<Page, ()> = Graph::new();
 
