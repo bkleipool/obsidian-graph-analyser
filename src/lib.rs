@@ -1,12 +1,15 @@
-use filtering::{ParsingError, parse_boolean_expr, evaluate_expr};
-use petgraph::{graph::{NodeIndex, EdgeIndex}, Graph};
+use filtering::{evaluate_expr, parse_boolean_expr, ParsingError};
+use petgraph::{
+    graph::{EdgeIndex, NodeIndex},
+    Graph,
+};
 use rand_distr::{Distribution, Normal};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod app;
-pub mod vault_parser;
 pub mod filtering;
+pub mod vault_parser;
 
 /// This struct stores the Markdown page information
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -35,7 +38,7 @@ impl Node {
         Self {
             node_index: node_index,
             frame_pos: pos,
-            visible: true
+            visible: true,
         }
     }
 }
@@ -161,7 +164,7 @@ impl GraphView {
     /// Set node visibilities based on a filtering expression
     pub fn filter_nodes(&mut self, filter_query: &str) -> Option<ParsingError> {
         let expr_result = parse_boolean_expr(&filter_query);
-                                
+
         // Check if bool_expr is parsed successfully
         match expr_result {
             Ok(bool_expr) => {
@@ -185,7 +188,11 @@ impl GraphView {
 
                 // Evaluate empty pages based on parent node
                 for (node_index, _page) in empty_pages {
-                    let parent_node_index = self.graph.neighbors_undirected(node_index).nth(0).expect("Empty node with no parent");
+                    let parent_node_index = self
+                        .graph
+                        .neighbors_undirected(node_index)
+                        .nth(0)
+                        .expect("Empty node with no parent");
                     let parent_is_visible = self.nodes.get(&parent_node_index).unwrap().visible;
                     let mut node = self.nodes.get_mut(&node_index).unwrap();
 
@@ -202,14 +209,10 @@ impl GraphView {
                     }
                     */
                 }
-                
-                
 
                 None
-            },
-            Err(parsing_error) => {
-                Some(parsing_error)
-            },
+            }
+            Err(parsing_error) => Some(parsing_error),
         }
     }
 
@@ -245,20 +248,21 @@ impl GraphView {
                         } else {
                             None
                         }
-                    }).collect();
-    
+                    })
+                    .collect();
+
                 // Get acceleration due to springs
                 for neighbor_pos in neighbors.iter() {
                     let neighbor_accel = spring_constant / node_mass
                         * (*neighbor_pos - node.frame_pos)
                         * (1.0 - spring_length / ((*neighbor_pos - node.frame_pos).length()) + 1.0)
                             .log10();
-    
+
                     if !neighbor_accel.any_nan() {
                         accel += neighbor_accel
                     }
                 }
-    
+
                 // Retrieve coordinates of all nodes
                 let node_coords: Vec<egui::Vec2> = self
                     .nodes
@@ -269,8 +273,9 @@ impl GraphView {
                         } else {
                             None
                         }
-                    }).collect();
-    
+                    })
+                    .collect();
+
                 // Get repellant forces
                 for node_pos in node_coords {
                     if (node.frame_pos - node_pos).length() >= 0.1 {
@@ -280,7 +285,7 @@ impl GraphView {
                                 .powf(repelling_force_exponent));
                     }
                 }
-    
+
                 // Add center acceleration
                 if node.frame_pos.length() <= gravity_truncation_radius {
                     accel += gravity_constant / node_mass * -node.frame_pos
@@ -290,20 +295,21 @@ impl GraphView {
                         / node.frame_pos.length().powf(gravity_force_exponent_primary);
                 } else {
                     accel += gravity_constant / node_mass * 1.0
-                        / gravity_switch_radius
-                            .powf(gravity_force_exponent_primary - gravity_force_exponent_secondary)
+                        / gravity_switch_radius.powf(
+                            gravity_force_exponent_primary - gravity_force_exponent_secondary,
+                        )
                         * -node.frame_pos
                         / node
                             .frame_pos
                             .length()
                             .powf(gravity_force_exponent_secondary);
                 }
-    
+
                 node_accel.push(accel)
             } else {
                 node_accel.push(egui::Vec2::new(0., 0.))
             }
-        };
+        }
 
         // Apply node accelerations
         for ((_, node), accel) in self.nodes.iter_mut().zip(node_accel) {
@@ -312,7 +318,6 @@ impl GraphView {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,35 +325,34 @@ mod tests {
     fn create_testing_graph() -> (NodeIndex, NodeIndex, NodeIndex, NodeIndex, Graph<Page, ()>) {
         // Create graph
         let mut graph = Graph::<Page, ()>::new();
-        let page1 = graph.add_node(Page{
+        let page1 = graph.add_node(Page {
             title: "Page 1".to_string(),
             tags: vec!["tag1".to_string(), "tag2".to_string()],
-            empty: false, 
-            links: vec!["Page 2".to_string()]
+            empty: false,
+            links: vec!["Page 2".to_string()],
         });
-        let page2 = graph.add_node(Page{
+        let page2 = graph.add_node(Page {
             title: "Page 2".to_string(),
             tags: Vec::default(),
-            empty: false, 
-            links: Vec::default()
+            empty: false,
+            links: Vec::default(),
         });
-        let page3 = graph.add_node(Page{
+        let page3 = graph.add_node(Page {
             title: "Page 3".to_string(),
             tags: Vec::default(),
-            empty: false, 
-            links: vec!["Page 1".to_string(), "Page 2".to_string()]
+            empty: false,
+            links: vec!["Page 1".to_string(), "Page 2".to_string()],
         });
-        let page4 = graph.add_node(Page{
+        let page4 = graph.add_node(Page {
             title: "Page 4".to_string(),
             tags: vec!["tag1".to_string()],
-            empty: false, 
-            links: vec!["Page 3".to_string()]
+            empty: false,
+            links: vec!["Page 3".to_string()],
         });
 
         // Create & filter graphview
         (page1, page2, page3, page4, graph)
     }
-
 
     #[test]
     fn graph_filtering_test_1() {
@@ -357,7 +361,12 @@ mod tests {
 
         graphview.filter_nodes("tag:#tag1");
 
-        assert!(graphview.node_is_visible(page1) && !graphview.node_is_visible(page2) && !graphview.node_is_visible(page3) && graphview.node_is_visible(page4))
+        assert!(
+            graphview.node_is_visible(page1)
+                && !graphview.node_is_visible(page2)
+                && !graphview.node_is_visible(page3)
+                && graphview.node_is_visible(page4)
+        )
     }
 
     #[test]
@@ -367,7 +376,11 @@ mod tests {
 
         graphview.filter_nodes("tag:#tag1 & tag:#tag2");
 
-        assert!(graphview.node_is_visible(page1) && !graphview.node_is_visible(page2) && !graphview.node_is_visible(page3) && !graphview.node_is_visible(page4))
+        assert!(
+            graphview.node_is_visible(page1)
+                && !graphview.node_is_visible(page2)
+                && !graphview.node_is_visible(page3)
+                && !graphview.node_is_visible(page4)
+        )
     }
-
 }

@@ -1,10 +1,8 @@
-
 // (A & tag:#B) | (C & -tag:#D) -> expression (describes boolean logic operations)
 // tag:#B -> filter (describes specific field which is filtered)
 // B -> query (regex which returns true / false)
 
 use crate::Page;
-
 
 // Define the boolean expression tree data structure
 #[derive(Debug)]
@@ -25,7 +23,7 @@ pub enum ParsingError {
 
 // Helper function to check if a character is a valid query character
 fn is_valid_char(c: char) -> bool {
-    c != '(' && c != ')' && c != '&' && c != '|' && c != '-' && c != ' ' 
+    c != '(' && c != ')' && c != '&' && c != '|' && c != '-' && c != ' '
 }
 
 /// Turns a string into a boolean syntax tree (recursively)
@@ -90,18 +88,16 @@ pub fn parse_boolean_expr(expr: &str) -> Result<BooleanExpr, ParsingError> {
 // Evaluates a (nested) boolean expression for some input [Page]
 pub fn evaluate_expr(expr: &BooleanExpr, input: &Page) -> bool {
     match expr {
-        BooleanExpr::Not(inner_expr) => {
-            !evaluate_expr(inner_expr.as_ref(), input)
-        },
+        BooleanExpr::Not(inner_expr) => !evaluate_expr(inner_expr.as_ref(), input),
         BooleanExpr::And(inner_expr_left, inner_expr_right) => {
-            evaluate_expr(inner_expr_left.as_ref(), input) && evaluate_expr(inner_expr_right.as_ref(), input)
-        },
+            evaluate_expr(inner_expr_left.as_ref(), input)
+                && evaluate_expr(inner_expr_right.as_ref(), input)
+        }
         BooleanExpr::Or(inner_expr_left, inner_expr_right) => {
-            evaluate_expr(inner_expr_left.as_ref(), input) || evaluate_expr(inner_expr_right.as_ref(), input)
-        },
-        BooleanExpr::Filter(filter_string) => {
-            evaluate_filter(filter_string, input)
-        },
+            evaluate_expr(inner_expr_left.as_ref(), input)
+                || evaluate_expr(inner_expr_right.as_ref(), input)
+        }
+        BooleanExpr::Filter(filter_string) => evaluate_filter(filter_string, input),
     }
 }
 
@@ -123,5 +119,4 @@ fn evaluate_filter(filter: &str, input: &Page) -> bool {
         let query = filter;
         input.title.contains(query)
     }
-
 }

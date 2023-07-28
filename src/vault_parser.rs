@@ -1,6 +1,11 @@
-use std::{fs, collections::{HashMap, HashSet}, path::{Path, PathBuf}, io::Read};
 use petgraph::Graph;
 use regex::Regex;
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 use crate::Page;
 
@@ -12,9 +17,14 @@ fn search_markdown_files(folder_path: &Path) -> Vec<(PathBuf, String)> {
         for entry in fs::read_dir(folder_path).unwrap() {
             if let Ok(entry) = entry {
                 let file_path = entry.path();
-                if file_path.is_file() && file_path.extension() == Some(&std::ffi::OsStr::new("md")) {
+                if file_path.is_file() && file_path.extension() == Some(&std::ffi::OsStr::new("md"))
+                {
                     let file_path_buf = file_path.to_path_buf();
-                    let file_title = file_path.file_stem().and_then(|os_str| os_str.to_str()).unwrap().to_string();
+                    let file_title = file_path
+                        .file_stem()
+                        .and_then(|os_str| os_str.to_str())
+                        .unwrap()
+                        .to_string();
                     file_list.push((file_path_buf, file_title));
                 } else if file_path.is_dir() {
                     recursive_file_search(&file_path, file_list);
@@ -37,7 +47,10 @@ fn search_tags(file: &Path) -> Vec<String> {
     let tag_pattern = Regex::new(r"---\n\s*(?:tags: |tag: )(.*?)\n---").unwrap();
     if let Some(captures) = tag_pattern.captures(&contents) {
         let tags_string = captures.get(1).unwrap().as_str().trim();
-        let tags: Vec<String> = tags_string.split(',').map(|tag| tag.trim().to_string()).collect();
+        let tags: Vec<String> = tags_string
+            .split(',')
+            .map(|tag| tag.trim().to_string())
+            .collect();
         return tags;
     }
     Vec::new()
@@ -56,7 +69,11 @@ fn search_links(file: &Path) -> Vec<String> {
         .map(|capture| capture.get(1).map_or("", |m| m.as_str()).trim().to_string())
         .filter(|link| !link.is_empty())
         .collect();
-    links.into_iter().collect::<HashSet<_>>().into_iter().collect()
+    links
+        .into_iter()
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 // Extract all markdown files from a directory
@@ -90,7 +107,6 @@ fn extract_pages(vault_dir: &Path) -> Vec<Page> {
     pages
 }
 
-
 // Reads a vector of Page structs and converts it to a petgraph instance
 fn pages_to_graph(pages: Vec<Page>) -> Graph<Page, ()> {
     // Create a directed graph
@@ -121,7 +137,6 @@ fn pages_to_graph(pages: Vec<Page>) -> Graph<Page, ()> {
 
     graph
 }
-
 
 /// Converts an Obsidian vault to a petgraph instance
 pub fn vault_to_graph(vault_dir: &Path) -> Graph<Page, ()> {

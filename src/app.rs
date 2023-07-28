@@ -1,5 +1,5 @@
+use crate::{filtering::ParsingError, vault_parser::vault_to_graph, GraphView, Page};
 use eframe::egui;
-use crate::{GraphView, Page, vault_parser::vault_to_graph, filtering::ParsingError};
 use petgraph::{
     // dot::{Config, Dot},
     graph::NodeIndex,
@@ -62,7 +62,7 @@ pub struct MyApp {
     /// Query used when filtering nodes in the graph
     filter_query: String,
     /// Error encountered when parsing filtering expression (if any)
-    filtering_error: Option<ParsingError>
+    filtering_error: Option<ParsingError>,
 }
 
 impl MyApp {
@@ -110,7 +110,6 @@ impl MyApp {
 // Update MyApp
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-
         // Look for drag-and-dropped files
         self.ui_file_drag_and_drop(ctx);
 
@@ -130,10 +129,13 @@ impl eframe::App for MyApp {
                 });
                 //ui.menu_button("Edit", |ui| {
                 //    if ui.button("Undo").clicked() {}
-                //    if ui.button("Redo").clicked() {}   
+                //    if ui.button("Redo").clicked() {}
                 //});
                 ui.menu_button("Help", |ui| {
-                    ui.hyperlink_to("Project Github Page", "https://github.com/bkleipool/obsidian-graph-analyser");
+                    ui.hyperlink_to(
+                        "Project Github Page",
+                        "https://github.com/bkleipool/obsidian-graph-analyser",
+                    );
                     if ui.button("Documentation").clicked() {}
                 });
             });
@@ -317,32 +319,40 @@ impl eframe::App for MyApp {
                 egui::CollapsingHeader::new("Filtering settings")
                     .default_open(true)
                     .show(ui, |ui| {
-
                         ui.horizontal(|ui| {
                             let response = ui.add_sized(
                                 [150.0, 20.0],
-                                egui::TextEdit::singleline(&mut self.filter_query)
+                                egui::TextEdit::singleline(&mut self.filter_query),
                             );
                             ui.label("Filtering");
 
-                            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                                self.filtering_error = self.graphview.filter_nodes(&self.filter_query);
+                            if response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            {
+                                self.filtering_error =
+                                    self.graphview.filter_nodes(&self.filter_query);
                             }
                         });
 
                         if let Some(parsing_error) = &self.filtering_error {
                             let text = match parsing_error {
-                                ParsingError::InvalidExpression(expr) => "Invalid expression: ".to_owned()+expr,
-                                ParsingError::MissingOperand(expr) => "Missing operand: ".to_owned()+expr,
-                                ParsingError::MissingOperator(expr) => "Missing operator: ".to_owned()+expr,
-                                ParsingError::UnmatchedParentheses => "Unmatched parentheses".to_string(),
+                                ParsingError::InvalidExpression(expr) => {
+                                    "Invalid expression: ".to_owned() + expr
+                                }
+                                ParsingError::MissingOperand(expr) => {
+                                    "Missing operand: ".to_owned() + expr
+                                }
+                                ParsingError::MissingOperator(expr) => {
+                                    "Missing operator: ".to_owned() + expr
+                                }
+                                ParsingError::UnmatchedParentheses => {
+                                    "Unmatched parentheses".to_string()
+                                }
                             };
                             ui.label(text);
                         } else {
                             ui.label("");
                         }
-                        
-
 
                         if ui.button("Show all nodes").clicked() {
                             for (_, node) in self.graphview.nodes.iter_mut() {
@@ -405,16 +415,19 @@ impl MyApp {
                     let dir = (end_pos - start_pos).normalized();
 
                     let origin = (self.zoom * start_pos).to_pos2() + self.frame_center;
-                    let tip = origin + self.zoom * (end_pos - start_pos - self.node_size*dir);
-                    
-                    let stroke = egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155));
+                    let tip = origin + self.zoom * (end_pos - start_pos - self.node_size * dir);
+
+                    let stroke =
+                        egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155));
                     let angle = egui::emath::Rot2::from_angle(std::f32::consts::TAU / 10.0);
-                    
+
                     let tip_length = match self.zoom * (end_pos - start_pos).length() {
-                        x if x / 8.0 < self.arrow_size => self.zoom * (end_pos - start_pos).length() / 8.0,
-                        _ => self.arrow_size
+                        x if x / 8.0 < self.arrow_size => {
+                            self.zoom * (end_pos - start_pos).length() / 8.0
+                        }
+                        _ => self.arrow_size,
                     };
-                    
+
                     painter.line_segment([origin, tip], stroke);
                     painter.line_segment([tip, tip - tip_length * (angle * dir)], stroke);
                     painter.line_segment([tip, tip - tip_length * (angle.inverse() * dir)], stroke);
@@ -423,18 +436,25 @@ impl MyApp {
             false => {
                 // Draw lines
                 for (edge_index, start_pos, end_pos) in self.graphview.edge_start_end_positions() {
-                    let (edge_start_node, edge_end_node) = self.graphview.graph.edge_endpoints(edge_index).unwrap();
+                    let (edge_start_node, edge_end_node) =
+                        self.graphview.graph.edge_endpoints(edge_index).unwrap();
 
-                    if self.graphview.node_is_visible(edge_start_node) && self.graphview.node_is_visible(edge_end_node) {
-                    
+                    if self.graphview.node_is_visible(edge_start_node)
+                        && self.graphview.node_is_visible(edge_end_node)
+                    {
                         // Check if edge is connected to hovering node
-                        if Some(edge_start_node) == self.hovering_node || Some(edge_end_node) == self.hovering_node {
+                        if Some(edge_start_node) == self.hovering_node
+                            || Some(edge_end_node) == self.hovering_node
+                        {
                             painter.line_segment(
                                 [
                                     (self.zoom * start_pos).to_pos2() + self.frame_center,
                                     (self.zoom * end_pos).to_pos2() + self.frame_center,
                                 ],
-                                egui::Stroke::new(self.link_width, egui::Color32::from_rgb(255, 105, 105)),
+                                egui::Stroke::new(
+                                    self.link_width,
+                                    egui::Color32::from_rgb(255, 105, 105),
+                                ),
                             )
                         } else {
                             painter.line_segment(
@@ -442,10 +462,12 @@ impl MyApp {
                                     (self.zoom * start_pos).to_pos2() + self.frame_center,
                                     (self.zoom * end_pos).to_pos2() + self.frame_center,
                                 ],
-                                egui::Stroke::new(self.link_width, egui::Color32::from_rgb(155, 155, 155)),
+                                egui::Stroke::new(
+                                    self.link_width,
+                                    egui::Color32::from_rgb(155, 155, 155),
+                                ),
                             )
                         }
-
                     }
                 }
             }
@@ -454,7 +476,6 @@ impl MyApp {
         // Draw nodes
         for (node_index, node_pos) in self.graphview.node_positions() {
             if self.graphview.node_is_visible(node_index) {
-
                 // Check if node is being hovered
                 if Some(node_index) != self.hovering_node {
                     // Check if node is not empty
@@ -606,10 +627,9 @@ impl MyApp {
         // Preview hovering file
         if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
             let text = ctx.input(|i| {
-                
                 let mut text = "Dropping files:\n".to_owned();
                 let file_path = &i.raw.hovered_files[0].path;
-                write!(text, "\n{}",  file_path.as_ref().unwrap().display()).ok();
+                write!(text, "\n{}", file_path.as_ref().unwrap().display()).ok();
 
                 text
             });
@@ -639,13 +659,10 @@ impl MyApp {
             if dropped_file != egui::DroppedFile::default() {
                 if let Some(path) = &dropped_file.path {
                     if path.is_dir() {
-                        self.graphview = GraphView::new(
-                            vault_to_graph(path)
-                        ) 
+                        self.graphview = GraphView::new(vault_to_graph(path))
                     }
                 };
             };
         });
-        
     }
 }
