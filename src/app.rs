@@ -8,7 +8,7 @@ use petgraph::{
 
 pub struct MyApp {
     /// The graph currently being viewd
-    graph: GraphView,
+    graphview: GraphView,
     /// The coordinate of the center in screenspace
     frame_center: egui::Vec2,
     /// The size of the drawing area in screenspace (automatically updating)
@@ -73,7 +73,7 @@ impl MyApp {
         // for e.g. egui::PaintCallback.
 
         Self {
-            graph: GraphView::new(graph),
+            graphview: GraphView::new(graph),
             frame_center: egui::Vec2::new(640., 372.),
             frame_size: egui::Vec2::new(0., 0.),
             dragging_node: None,
@@ -326,7 +326,7 @@ impl eframe::App for MyApp {
                             ui.label("Filtering");
 
                             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                                self.filtering_error = self.graph.filter_nodes(&self.filter_query);
+                                self.filtering_error = self.graphview.filter_nodes(&self.filter_query);
                             }
                         });
 
@@ -345,7 +345,7 @@ impl eframe::App for MyApp {
 
 
                         if ui.button("Show all nodes").clicked() {
-                            for (_, node) in self.graph.nodes.iter_mut() {
+                            for (_, node) in self.graphview.nodes.iter_mut() {
                                 node.visible = true
                             }
                         }
@@ -382,7 +382,7 @@ impl MyApp {
 
         // Perform physics timestep
         if self.enable_physics {
-            self.graph.physics_timestep(
+            self.graphview.physics_timestep(
                 1.0,
                 self.gravity_force,
                 self.repellant_force,
@@ -401,7 +401,7 @@ impl MyApp {
         match self.draw_arrows {
             true => {
                 // Draw arrows
-                for (_, start_pos, end_pos) in self.graph.edge_start_end_positions() {
+                for (_, start_pos, end_pos) in self.graphview.edge_start_end_positions() {
                     let dir = (end_pos - start_pos).normalized();
 
                     let origin = (self.zoom * start_pos).to_pos2() + self.frame_center;
@@ -422,10 +422,10 @@ impl MyApp {
             }
             false => {
                 // Draw lines
-                for (edge_index, start_pos, end_pos) in self.graph.edge_start_end_positions() {
-                    let (edge_start_node, edge_end_node) = self.graph.graph.edge_endpoints(edge_index).unwrap();
+                for (edge_index, start_pos, end_pos) in self.graphview.edge_start_end_positions() {
+                    let (edge_start_node, edge_end_node) = self.graphview.graph.edge_endpoints(edge_index).unwrap();
 
-                    if self.graph.node_is_visible(edge_start_node) && self.graph.node_is_visible(edge_end_node) {
+                    if self.graphview.node_is_visible(edge_start_node) && self.graphview.node_is_visible(edge_end_node) {
                     
                         // Check if edge is connected to hovering node
                         if Some(edge_start_node) == self.hovering_node || Some(edge_end_node) == self.hovering_node {
@@ -452,13 +452,13 @@ impl MyApp {
         }
 
         // Draw nodes
-        for (node_index, node_pos) in self.graph.node_positions() {
-            if self.graph.node_is_visible(node_index) {
+        for (node_index, node_pos) in self.graphview.node_positions() {
+            if self.graphview.node_is_visible(node_index) {
 
                 // Check if node is being hovered
                 if Some(node_index) != self.hovering_node {
                     // Check if node is not empty
-                    if !self.graph.node_is_empty(node_index) {
+                    if !self.graphview.node_is_empty(node_index) {
                         painter.circle_filled(
                             (self.zoom * node_pos).to_pos2() + self.frame_center,
                             self.zoom * self.node_size,
@@ -483,18 +483,18 @@ impl MyApp {
 
         // Draw node labels (if they are visible on the screen)
         if self.draw_labels {
-            for (node_index, node_pos) in self.graph.node_positions() {
+            for (node_index, node_pos) in self.graphview.node_positions() {
                 let text_pos = (self.zoom * (node_pos + egui::Vec2::new(0., self.node_size + 2.0)))
                     + self.frame_center;
 
                 if (0.0..=self.frame_size.x).contains(&text_pos.x)
                     && (0.0..=self.frame_size.y).contains(&text_pos.y)
-                    && self.graph.node_is_visible(node_index)
+                    && self.graphview.node_is_visible(node_index)
                 {
                     painter.text(
                         text_pos.to_pos2(),
                         egui::Align2::CENTER_TOP,
-                        self.graph.node_title(node_index),
+                        self.graphview.node_title(node_index),
                         egui::FontId::proportional(self.text_size * self.zoom),
                         egui::Color32::from_rgba_unmultiplied(
                             255,
@@ -537,19 +537,19 @@ impl MyApp {
         if response.dragged() {
             // Check if a node is already being dragged
             match self.dragging_node {
-                Some(dragging_node_index) => self.graph.set_node_position(
+                Some(dragging_node_index) => self.graphview.set_node_position(
                     dragging_node_index,
                     (mouse_pos.to_vec2() - self.frame_center) / self.zoom,
                 ),
                 None => {
-                    for (index, node_pos) in self.graph.node_positions() {
+                    for (index, node_pos) in self.graphview.node_positions() {
                         if ((self.zoom * node_pos) + self.frame_center - mouse_pos.to_vec2())
                             .length()
                             <= self.zoom * self.node_size
                         {
                             self.dragging_node = Some(index);
 
-                            self.graph.set_node_position(
+                            self.graphview.set_node_position(
                                 index,
                                 (mouse_pos.to_vec2() - self.frame_center) / self.zoom,
                             )
@@ -570,7 +570,7 @@ impl MyApp {
         let old_node_hover_time = self.node_hover_time;
 
         if response.hovered() && self.dragging_node == None {
-            for (index, node_pos) in self.graph.node_positions() {
+            for (index, node_pos) in self.graphview.node_positions() {
                 if ((self.zoom * node_pos) + self.frame_center - mouse_pos.to_vec2()).length()
                     <= self.zoom * self.node_size
                 {
@@ -639,7 +639,7 @@ impl MyApp {
             if dropped_file != egui::DroppedFile::default() {
                 if let Some(path) = &dropped_file.path {
                     if path.is_dir() {
-                        self.graph = GraphView::new(
+                        self.graphview = GraphView::new(
                             vault_to_graph(path)
                         ) 
                     }
